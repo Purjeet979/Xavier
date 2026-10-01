@@ -16,6 +16,10 @@ export interface RagDebugInfo {
   historyTurnCount: number
   retrieval: RetrievalDebugInfo
   grounding?: { pass: boolean; topCosine: number; threshold: number }
+  contextChars?: number
+  contextTokens?: number
+  truncatedChunks?: number
+  outcome?: 'gate_refused' | 'answered' | 'verifier_all_dropped' | 'parse_fallback' | 'partial_fallback' | 'error' | 'tier0_evidence_only'
 }
 
 export interface RAGAnswerChunk {
@@ -159,6 +163,8 @@ export async function* generateRAGAnswer(
     yield { type: 'debug', debug }
 
     if (!gateResult.pass || allCitations.length === 0) {
+      debug.outcome = 'gate_refused'
+      yield { type: 'debug', debug }
       yield { type: 'text_delta', text: 'Not found in your material' }
       yield { type: 'done' }
       return
@@ -168,6 +174,8 @@ export async function* generateRAGAnswer(
 
     const effectiveTier = getEffectiveTier()
     if (effectiveTier === 0) {
+      debug.outcome = 'tier0_evidence_only'
+      yield { type: 'debug', debug }
       yield { type: 'text_delta', text: 'Hardware Tier 0 (Fallback): Generation disabled.\n\nHere are the most relevant excerpts from your documents:\n\n' }
       for (let i = 0; i < citations.length; i++) {
         yield { type: 'text_delta', text: `**[Source C${i + 1}]:** ${citations[i].text}\n\n` }
@@ -177,7 +185,12 @@ export async function* generateRAGAnswer(
       return
     }
 
-    const contextText = buildContext(citations)
+    const { contextText, truncatedCount, contextChars } = buildContext(citations)
+    
+    debug.contextChars = contextChars
+    debug.contextTokens = Math.ceil(contextChars / 4)
+    debug.truncatedChunks = truncatedCount
+    yield { type: 'debug', debug }
 
     const systemPrompt = `You are a helpful assistant answering user queries based on the provided document excerpts.
 Answer the query as accurately as possible using only the context provided.
@@ -258,20 +271,26 @@ ${contextText}`
       const { verifiedText, removedCount } = await verifyAnswer(parsedAnswer, finalCitations, options.embeddingModelId)
       
       if (verifiedText.trim() === '') {
+        debug.outcome = 'verifier_all_dropped'
         yield { type: 'verified', text: 'Not found in your material', removedCount: 0 }
         yield { type: 'citations', citations: [] }
       } else {
+        debug.outcome = 'answered'
         yield { type: 'verified', text: verifiedText, removedCount }
         yield { type: 'citations', citations: finalCitations }
       }
     } else {
+      debug.outcome = parsedAnswer.trim() ? 'partial_fallback' : 'parse_fallback'
       yield { type: 'text_delta', text: '\n\n[Fallback: Could not parse structured answer. Here is the evidence]' }
       yield { type: 'citations', citations }
     }
 
+    yield { type: 'debug', debug }
     yield { type: 'done' }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Answer generation failed'
+    // Ensure we emit debug with error outcome even if we failed early
+    yield { type: 'debug', debug: { userQuery: query, retrievalQuery: query, wasRewritten: false, historyTurnCount: 0, retrieval: { query } as unknown as RetrievalDebugInfo, outcome: 'error' } }
     yield { type: 'error', error: message }
   }
 }
