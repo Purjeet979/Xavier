@@ -136,6 +136,17 @@ export function RetrievalDebugPanel({ debug }: { debug: RagDebugInfo }) {
             </div>
           </Section>
 
+          {(debug.outcome || debug.contextChars != null) && (
+            <Section title="Generation & Context" defaultOpen>
+              <div className="px-2.5 pb-2 flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground/80 font-mono">
+                {debug.outcome && <span className="text-foreground/90 font-bold">outcome: {debug.outcome}</span>}
+                {debug.contextChars != null && <span>ctx_chars: {debug.contextChars}</span>}
+                {debug.contextTokens != null && <span>ctx_tokens: ~{debug.contextTokens}</span>}
+                {!!debug.truncatedChunks && <span className="text-orange-500 font-bold">truncated_chunks: {debug.truncatedChunks}</span>}
+              </div>
+            </Section>
+          )}
+
           <Section title="Settings" defaultOpen>
             <div className="px-2.5 pb-2 flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground/80 font-mono">
               <span>hybrid {debug.retrieval.hybridEnabled ? 'on' : 'off'}</span>
