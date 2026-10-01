@@ -1,0 +1,17 @@
+{
+  "name": "Browser RAG - Local Private Search & AI Q&A",
+  "short_name": "Browser RAG",
+  "description": "Fully local, private Retrieval-Augmented Generation running entirely in your browser using WebGPU, WASM, and PGlite.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#2f3a5c",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
