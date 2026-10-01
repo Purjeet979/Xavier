@@ -10,6 +10,7 @@ export interface EvalResult {
   citationsCount: number
   sentencesGenerated: number
   sentencesDropped: number
+  outcome?: 'gate_refused' | 'answered' | 'verifier_all_dropped' | 'parse_fallback' | 'partial_fallback' | 'error' | 'tier0_evidence_only'
   error?: string
 }
 
@@ -28,6 +29,7 @@ export async function runEval(
     let citationsCount = 0
     let sentencesDropped = 0
     let answerText = ''
+    let outcome: EvalResult['outcome']
     
     try {
       const stream = generateRAGAnswer(q.text, {
@@ -56,6 +58,9 @@ export async function runEval(
              sentencesDropped += (chunk.removedCount || 0)
            }
         }
+        if (chunk.type === 'debug' && chunk.debug?.outcome) {
+          outcome = chunk.debug.outcome
+        }
       }
       
       const sentencesGenerated = sentencesDropped + (answerText.trim() ? answerText.split(/(?<=[.?!])\s+/).length : 0);
@@ -67,7 +72,8 @@ export async function runEval(
         wasRefused,
         citationsCount,
         sentencesGenerated,
-        sentencesDropped
+        sentencesDropped,
+        outcome: outcome ?? (wasRefused ? 'gate_refused' : 'answered')
       }
       results.push(res)
       onProgress(i + 1, evalSet.length, res)
@@ -81,6 +87,7 @@ export async function runEval(
         citationsCount: 0,
         sentencesGenerated: 0,
         sentencesDropped: 0,
+        outcome: 'error',
         error: err instanceof Error ? err.message : 'Unknown error'
       }
       results.push(res)
@@ -92,19 +99,31 @@ export async function runEval(
 }
 
 export function computeMetrics(results: EvalResult[]) {
-  const answerable = results.filter(r => r.answerable)
-  const unanswerable = results.filter(r => !r.answerable)
+  const answerable = results.filter(r => r.answerable && r.outcome !== 'error')
+  const unanswerable = results.filter(r => !r.answerable && r.outcome !== 'error')
   
-  const correctRefusals = unanswerable.filter(r => r.wasRefused).length
-  const wrongRefusals = answerable.filter(r => r.wasRefused).length
+  const correctGateRefusals = unanswerable.filter(r => r.outcome === 'gate_refused').length
+  const correctVerifierRefusals = unanswerable.filter(r => r.outcome === 'verifier_all_dropped').length
+  
+  const wrongGateRefusals = answerable.filter(r => r.outcome === 'gate_refused').length
+  const wrongVerifierRefusals = answerable.filter(r => r.outcome === 'verifier_all_dropped').length
   
   const totalSentences = results.reduce((sum, r) => sum + r.sentencesGenerated, 0)
   const totalDropped = results.reduce((sum, r) => sum + r.sentencesDropped, 0)
   
+  const parseFailures = results.filter(r => r.outcome === 'parse_fallback' || r.outcome === 'partial_fallback').length
+  const totalValid = answerable.length + unanswerable.length
+
   return {
-    refusalAccuracy: unanswerable.length ? (correctRefusals / unanswerable.length) * 100 : 0,
-    falseRefusalRate: answerable.length ? (wrongRefusals / answerable.length) * 100 : 0,
+    refusalAccuracy: unanswerable.length ? ((correctGateRefusals + correctVerifierRefusals) / unanswerable.length) * 100 : 0,
+    correctGateRefusals,
+    correctVerifierRefusals,
+    falseRefusalRate: answerable.length ? ((wrongGateRefusals + wrongVerifierRefusals) / answerable.length) * 100 : 0,
+    wrongGateRefusals,
+    wrongVerifierRefusals,
+    parseFailureRate: totalValid ? (parseFailures / totalValid) * 100 : 0,
     verifierDropRate: totalSentences ? (totalDropped / totalSentences) * 100 : 0,
-    totalCitations: results.reduce((sum, r) => sum + r.citationsCount, 0)
+    totalCitations: results.reduce((sum, r) => sum + r.citationsCount, 0),
+    errorCount: results.filter(r => r.outcome === 'error').length
   }
 }
