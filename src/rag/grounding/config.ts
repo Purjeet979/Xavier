@@ -1,5 +1,5 @@
 export const TOP_K_CONTEXT = 3
-export const MAX_CHUNK_CHARS = 1000
+export const MAX_CHUNK_CHARS_HARD = 3200
 
 // TODO: calibrate in Phase 4
 export const COSINE_THRESHOLDS: Record<string, number> = {
