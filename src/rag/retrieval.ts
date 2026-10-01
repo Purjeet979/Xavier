@@ -20,6 +20,7 @@ export interface RetrievalResult {
     vectorRank?: number
     keywordRank?: number
   }
+  truncated?: boolean
 }
 
 /** Compact hit used in retrieval debug panels. */
