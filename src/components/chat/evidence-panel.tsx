@@ -26,6 +26,7 @@ export function EvidencePanel({ chunks, onChunkClick }: EvidencePanelProps) {
               <FileText className="w-3 h-3 shrink-0" />
               <span className="truncate">{c.documentName}</span>
               {c.metadata?.pageNumber && <span className="opacity-70 font-mono text-[10px]">p.{c.metadata.pageNumber}</span>}
+              {c.truncated && <span className="text-[10px] text-orange-500 font-bold ml-1 px-1 rounded bg-orange-500/10">truncated in prompt</span>}
               <span className="ml-auto font-mono text-[10px] text-muted-foreground/60">[C{i + 1}]</span>
             </div>
             <div className="line-clamp-2 text-muted-foreground leading-relaxed">{c.text}</div>
