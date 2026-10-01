@@ -1,6 +1,6 @@
 import evalSet from './evalset.json'
 import { generateRAGAnswer } from '@/rag/orchestrator'
-import { getLLMVariant } from '@/llm/llm-models'
+import { type LLMRuntimeHandles } from '@/llm/llm-runtime'
 
 export interface EvalResult {
   id: string
@@ -15,14 +15,11 @@ export interface EvalResult {
 
 export async function runEval(
   embeddingModelId: string, 
-  llmModelId: string,
   projectId: string | null,
-  llmHandles: any,
+  llmHandles: LLMRuntimeHandles,
   onProgress: (current: number, total: number, latestResult: EvalResult) => void
 ): Promise<EvalResult[]> {
   const results: EvalResult[] = []
-  const variant = getLLMVariant(llmModelId)
-  
   for (let i = 0; i < evalSet.length; i++) {
     const q = evalSet[i]
     const abortController = new AbortController()
@@ -35,12 +32,12 @@ export async function runEval(
     try {
       const stream = generateRAGAnswer(q.text, {
         documentIds: [],
-        projectId: projectId ?? undefined,
+        projectId: projectId ?? '',
         embeddingModelId,
         conversationHistory: [],
         llmHandles,
         abortSignal: abortController.signal
-      }, variant)
+      })
 
       for await (const chunk of stream) {
         if (chunk.type === 'text_delta') {
@@ -75,7 +72,7 @@ export async function runEval(
       results.push(res)
       onProgress(i + 1, evalSet.length, res)
       
-    } catch (err: any) {
+    } catch (err: unknown) {
       const res: EvalResult = {
         id: q.id,
         question: q.text,
@@ -84,7 +81,7 @@ export async function runEval(
         citationsCount: 0,
         sentencesGenerated: 0,
         sentencesDropped: 0,
-        error: err?.message
+        error: err instanceof Error ? err.message : 'Unknown error'
       }
       results.push(res)
       onProgress(i + 1, evalSet.length, res)

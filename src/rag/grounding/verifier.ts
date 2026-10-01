@@ -3,7 +3,30 @@ import { getEmbeddingProvider } from '@/rag/embedding-runtime'
 import { getVerifyThreshold } from './config'
 import type { RetrievalResult } from '@/rag/retrieval'
 
-function splitSentences(text: string): string[] {
+function splitSentences(text: string): { text: string; isCode: boolean }[] {
+  const parts: { text: string; isCode: boolean }[] = [];
+  const codeBlockRegex = /```[\s\S]*?```/g;
+  let match;
+  let lastIndex = 0;
+  
+  while ((match = codeBlockRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      const textBefore = text.slice(lastIndex, match.index);
+      parts.push(...segmentText(textBefore).map(s => ({ text: s, isCode: false })));
+    }
+    parts.push({ text: match[0], isCode: true });
+    lastIndex = match.index + match[0].length;
+  }
+  
+  if (lastIndex < text.length) {
+    const textAfter = text.slice(lastIndex);
+    parts.push(...segmentText(textAfter).map(s => ({ text: s, isCode: false })));
+  }
+  
+  return parts;
+}
+
+function segmentText(text: string): string[] {
   if (typeof Intl !== 'undefined' && Intl.Segmenter) {
     const segmenter = new Intl.Segmenter('en', { granularity: 'sentence' });
     return Array.from(segmenter.segment(text)).map(s => s.segment.trim()).filter(Boolean);
@@ -17,7 +40,7 @@ function parseVector(str: string | number[]): number[] {
   try {
     return JSON.parse(str);
   } catch {
-    return str.replace(/[\[\]]/g, '').split(',').map(n => parseFloat(n));
+    return str.replace(/[[\]]/g, '').split(',').map(n => parseFloat(n));
   }
 }
 
@@ -48,25 +71,39 @@ export async function verifyAnswer(
 
   const provider = getEmbeddingProvider('local');
   const threshold = getVerifyThreshold(embeddingModelId);
-  const results = await provider.embedTexts(sentences);
+  
+  const sentencesToVerify = sentences.filter(s => !s.isCode && s.text.split(/\s+/).length >= 4);
+  const results = sentencesToVerify.length > 0 ? await provider.embedTexts(sentencesToVerify.map(s => s.text)) : [];
   
   const db = getDb();
   const chunkIds = citations.map(c => c.chunkId);
   const placeholders = chunkIds.map((_, i) => `$${i + 1}`).join(',');
   
-  const res = await db.query<{ embedding: string }>(
-    `SELECT embedding FROM chunks WHERE id IN (${placeholders})`, 
-    chunkIds
-  );
+  let chunkEmbeddings: number[][] = [];
+  if (chunkIds.length > 0) {
+    const res = await db.query<{ embedding: string }>(
+      `SELECT embedding FROM chunks WHERE id IN (${placeholders})`, 
+      chunkIds
+    );
+    chunkEmbeddings = res.rows.map(r => parseVector(r.embedding));
+  }
   
-  const chunkEmbeddings = res.rows.map(r => parseVector(r.embedding));
-  
-  let verifiedTextParts = [];
+  const verifiedTextParts = [];
   let removedCount = 0;
+  let verifyIndex = 0;
 
   for (let i = 0; i < sentences.length; i++) {
-    const sentenceEmb = results[i].embedding;
+    const s = sentences[i];
     
+    // Rule: Skip code blocks and sentences under 4 words. Keep them as-is.
+    if (s.isCode || s.text.split(/\s+/).length < 4) {
+      verifiedTextParts.push(s.text);
+      continue;
+    }
+    
+    const sentenceEmb = results[verifyIndex++].embedding;
+    
+    // Rule: A sentence's support = MAX cosine over its cited chunks (or all context chunks in cases A/B)
     let maxCosine = -1;
     for (const chunkEmb of chunkEmbeddings) {
       const sim = cosineSimilarity(sentenceEmb, chunkEmb);
@@ -74,7 +111,7 @@ export async function verifyAnswer(
     }
     
     if (maxCosine >= threshold) {
-      verifiedTextParts.push(sentences[i]);
+      verifiedTextParts.push(s.text);
     } else {
       removedCount++;
     }
@@ -83,5 +120,6 @@ export async function verifyAnswer(
   return { 
     verifiedText: verifiedTextParts.join(' '), 
     removedCount 
+
   };
 }

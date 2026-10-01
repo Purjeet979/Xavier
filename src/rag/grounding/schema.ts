@@ -37,7 +37,7 @@ export function tolerantParseJson(raw: string): { answer: string; citations: str
     }
 
     if (!answer && citations.length === 0) {
-      throw new Error('Could not parse any structured fields from output');
+      throw new Error('Could not parse any structured fields from output', { cause: err });
     }
     return { answer, citations };
   }
@@ -51,7 +51,9 @@ export function extractPartialAnswer(raw: string): string {
   try {
     const obj = JSON.parse(cleaned);
     if (typeof obj.answer === 'string') return obj.answer;
-  } catch {}
+  } catch {
+    // ignore
+  }
 
   const completeMatch = cleaned.match(/"answer"\s*:\s*"([^]*?)"\s*(?:,|\})/);
   if (completeMatch) return completeMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');

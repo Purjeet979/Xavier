@@ -1,7 +1,7 @@
 import { retrieveChunks, type RetrievalResult, type RetrievalDebugInfo } from './retrieval'
 import { loadPreferences } from '@/lib/preferences'
 import { getLLMVariant } from '@/llm/llm-models'
-import { streamLLMWithToolLoop, type RuntimeMessage } from '@/llm/llm-runtime'
+import { streamLLMWithToolLoop, type RuntimeMessage, type LLMRuntimeHandles } from '@/llm/llm-runtime'
 import { evaluateGate } from './grounding/gate'
 import { TOP_K_CONTEXT } from './grounding/config'
 import { buildContext } from './grounding/context'
@@ -53,7 +53,7 @@ async function rewriteQueryForRetrieval(
   query: string,
   prior: RuntimeMessage[],
   variant: ReturnType<typeof getLLMVariant>,
-  llmHandles: any,
+  llmHandles: LLMRuntimeHandles,
   abortSignal?: AbortSignal
 ): Promise<string> {
   if (prior.length === 0) return query
@@ -116,7 +116,7 @@ export async function* generateRAGAnswer(
     /** Prior user/assistant turns (excluding the current query). */
     conversationHistory?: RuntimeMessage[]
     abortSignal?: AbortSignal
-    llmHandles: any
+    llmHandles: LLMRuntimeHandles
   }
 ): AsyncGenerator<RAGAnswerChunk, void, unknown> {
   try {
@@ -165,7 +165,6 @@ export async function* generateRAGAnswer(
     }
 
     const citations = allCitations.slice(0, TOP_K_CONTEXT)
-    yield { type: 'context_chunks', contextChunks: citations }
 
     const effectiveTier = getEffectiveTier()
     if (effectiveTier === 0) {
@@ -193,70 +192,69 @@ ${contextText}`
 
     const messages: RuntimeMessage[] = [...prior, { role: 'user', content: query }]
 
-    let attempt = 0
-    let success = false
-    let finalCitations = citations
+    let rawOutput = ''
+    let lastRendered = ''
 
-    while (attempt < 2 && !success) {
-      attempt++
-      let rawOutput = ''
-      let lastRendered = ''
+    const stream = streamLLMWithToolLoop(
+      variant,
+      options.llmHandles,
+      messages,
+      systemPrompt,
+      undefined,
+      {
+        maxTokens: 1024,
+        thinkingEnabled: false,
+        toolsEnabled: false,
+        temperature: 0,
+        responseFormat: { type: 'json_object', schema: AnswerSchemaString }
+      },
+      options.abortSignal
+    )
 
-      const stream = streamLLMWithToolLoop(
-        variant,
-        options.llmHandles,
-        messages,
-        systemPrompt,
-        undefined,
-        {
-          maxTokens: 1024,
-          thinkingEnabled: false,
-          toolsEnabled: false,
-          temperature: 0,
-          responseFormat: { type: 'json_object', schema: AnswerSchemaString }
-        },
-        options.abortSignal
-      )
-
-      for await (const event of stream) {
-        if (options.abortSignal?.aborted) return
-        
-        if (event.type === 'text_delta') {
-          rawOutput += event.text
-          if (attempt === 1) { // Only stream UI updates on the first attempt
-            const currentAnswer = extractPartialAnswer(rawOutput)
-            if (currentAnswer.length > lastRendered.length) {
-              const delta = currentAnswer.slice(lastRendered.length)
-              yield { type: 'text_delta', text: delta }
-              lastRendered = currentAnswer
-            }
-          }
+    for await (const event of stream) {
+      if (options.abortSignal?.aborted) return
+      
+      if (event.type === 'text_delta') {
+        rawOutput += event.text
+        const currentAnswer = extractPartialAnswer(rawOutput)
+        if (currentAnswer.length > lastRendered.length) {
+          const delta = currentAnswer.slice(lastRendered.length)
+          yield { type: 'text_delta', text: delta }
+          lastRendered = currentAnswer
         }
       }
+    }
 
-      try {
-        const parsed = tolerantParseJson(rawOutput)
-        
-        if (attempt === 2) {
-          // If we had to retry, append the answer clearly
-          yield { type: 'text_delta', text: '\n\n' + parsed.answer }
-        }
+    let success = false
+    let finalCitations = citations
+    let parsedAnswer = ''
 
-        finalCitations = parsed.citations.map(label => {
-          const m = label.match(/C(\d+)/)
-          if (!m) return null
-          const idx = parseInt(m[1], 10) - 1
-          return citations[idx]
-        }).filter(Boolean) as typeof citations
+    try {
+      const parsed = tolerantParseJson(rawOutput)
+      parsedAnswer = parsed.answer
+      
+      finalCitations = parsed.citations.map(label => {
+        const m = label.match(/C(\d+)/)
+        if (!m) return null
+        const idx = parseInt(m[1], 10) - 1
+        return citations[idx]
+      }).filter(Boolean) as typeof citations
 
+      if (finalCitations.length === 0) {
+        finalCitations = citations // Verify against ALL context chunks
+      }
+
+      success = true
+    } catch {
+      const partial = extractPartialAnswer(rawOutput)
+      if (partial.trim()) {
+        parsedAnswer = partial
+        finalCitations = citations // NO reliable citations, verify against ALL
         success = true
-      } catch (e) {
-        // Loop and retry if attempt 1 failed
       }
     }
 
     if (success) {
-      const parsedAnswer = tolerantParseJson(rawOutput).answer
       const { verifiedText, removedCount } = await verifyAnswer(parsedAnswer, finalCitations, options.embeddingModelId)
       
       if (verifiedText.trim() === '') {
@@ -272,7 +270,8 @@ ${contextText}`
     }
 
     yield { type: 'done' }
-  } catch (err: any) {
-    yield { type: 'error', error: err?.message || 'Answer generation failed' }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Answer generation failed'
+    yield { type: 'error', error: message }
   }
 }

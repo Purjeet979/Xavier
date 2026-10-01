@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useSystemInit } from '@/context/system-init-context'
@@ -26,9 +27,8 @@ function EvalPage() {
     
     try {
       const handles = getLLMHandles()
-      const finalResults = await runEval(
+      await runEval(
         activeProject!.embeddingModelId,
-        preferences.llmModelId,
         activeProject!.id,
         handles,
         (current, total, latestResult) => {

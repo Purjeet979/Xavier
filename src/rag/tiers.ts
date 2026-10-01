@@ -13,7 +13,7 @@ export function detectHardware(): HardwareCapabilities {
   // navigator.deviceMemory is available in Chromium-based browsers
   // Defaults to 4 if not available (conservative estimate)
   const deviceMemory = typeof navigator !== 'undefined' && 'deviceMemory' in navigator
-    ? (navigator as any).deviceMemory
+    ? (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 4
     : 4
     
   // Simple mobile detection via user agent

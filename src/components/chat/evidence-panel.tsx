@@ -1,8 +1,10 @@
 import { Layers, FileText } from 'lucide-react'
 
+import type { RetrievalResult } from '@/rag/retrieval'
+
 interface EvidencePanelProps {
-  chunks: any[]
-  onChunkClick?: (chunk: any) => void
+  chunks: RetrievalResult[]
+  onChunkClick?: (chunk: RetrievalResult) => void
 }
 
 export function EvidencePanel({ chunks, onChunkClick }: EvidencePanelProps) {
