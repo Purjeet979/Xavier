@@ -1,0 +1,13 @@
+packages: []
+
+allowBuilds:
+  esbuild: true
+  msw: false
+  onnxruntime-node: true
+  protobufjs: true
+  sharp: true
+
+minimumReleaseAgeExclude:
+  - '@llamaindex/liteparse-wasm@2.5.0'
+  - '@ai-sdk/gateway@4.0.13'
+  - ai@7.0.17
