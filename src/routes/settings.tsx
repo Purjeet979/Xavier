@@ -1,0 +1,592 @@
+import { useState, useEffect } from 'react'
+import { createFileRoute } from '@tanstack/react-router'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Save, CheckCircle2, Cpu, RefreshCw, Database, XCircle, ShieldCheck, Download, Upload, AlertTriangle } from 'lucide-react'
+import { type Preferences } from '@/lib/preferences'
+import { LLM_OPTIONS, getLLMOption } from '@/llm/llm-models'
+import { useSystemInit } from '@/context/system-init-context'
+import { isDbInitialized, getDb, exportDb, importDb } from '@/db/client'
+import { StorageCacheManager } from '@/components/settings/storage-cache-manager'
+
+export const Route = createFileRoute('/settings')({
+  component: SettingsComponent,
+})
+
+function SettingsComponent() {
+  const { preferences: prefs, updatePreferences, activeProject, updateActiveProject } = useSystemInit()
+  const [isSaved, setIsSaved] = useState(false)
+
+  // Database status state
+  const [dbStatus, setDbStatus] = useState({
+    initialized: false,
+    version: 0,
+    tables: {} as Record<string, number>,
+    error: null as string | null,
+  })
+  const [checking, setChecking] = useState(false)
+
+  // Browser capabilities state
+  const [capabilities, setCapabilities] = useState({
+    webGpu: false,
+    webWorkers: false,
+    indexedDb: false,
+    wasmMultiThreading: false,
+  })
+
+  // Backup / Restore states
+  const [exporting, setExporting] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [importError, setImportError] = useState<string | null>(null)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [showConfirmRestore, setShowConfirmRestore] = useState(false)
+
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const blob = await exportDb()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `browser-rag-backup-${new Date().toISOString().split('T')[0]}.tar.gz`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err: any) {
+      console.error('Failed to export database:', err)
+      alert('Failed to export database: ' + (err.message || String(err)))
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (file.name.endsWith('.zip')) {
+        setImportError('Database backups are exported as compressed tarballs (.tar.gz). Standard .zip files are not supported.')
+        return
+      }
+      if (
+        !file.name.endsWith('.tar.gz') &&
+        !file.name.endsWith('.tgz') &&
+        !file.name.endsWith('.tar') &&
+        !file.name.endsWith('.gz')
+      ) {
+        setImportError('Selected file must be a backup archive (.tar.gz, .tgz, .tar)')
+        return
+      }
+      setSelectedFile(file)
+      setShowConfirmRestore(true)
+      setImportError(null)
+    }
+  }
+
+  const handleImport = async () => {
+    if (!selectedFile) return
+    setImporting(true)
+    setImportError(null)
+    try {
+      await importDb(selectedFile)
+      window.location.reload()
+    } catch (err: any) {
+      console.error('Failed to import database:', err)
+      setImportError(err.message || 'Failed to restore database from backup file.')
+      setImporting(false)
+      setShowConfirmRestore(false)
+      setSelectedFile(null)
+    }
+  }
+
+  const handleCancelRestore = () => {
+    setShowConfirmRestore(false)
+    setSelectedFile(null)
+    setImportError(null)
+  }
+
+  const handleSelectFileClick = () => {
+    document.getElementById('db-restore-upload')?.click()
+  }
+
+  const handleSavePrefs = (newPrefs: Partial<Preferences>) => {
+    updatePreferences(newPrefs)
+    setIsSaved(true)
+    setTimeout(() => setIsSaved(false), 2000)
+  }
+
+  const handleSaveProject = async (updates: any) => {
+    if (!activeProject) return
+    await updateActiveProject(updates)
+    setIsSaved(true)
+    setTimeout(() => setIsSaved(false), 2000)
+  }
+
+  const checkDatabase = async () => {
+    setChecking(true)
+    try {
+      if (isDbInitialized()) {
+        const db = getDb()
+
+        // Get schema version
+        const versionRes = await db.query<{ version: number }>(
+          'SELECT MAX(version) as version FROM migration_versions'
+        )
+        const version = versionRes.rows[0]?.version || 0
+
+        // Get row counts for key tables
+        const tables = ['collections', 'documents', 'chunks', 'index_jobs', 'query_history']
+        const counts: Record<string, number> = {}
+
+        for (const table of tables) {
+          const res = await db.query<{ count: string }>(
+            `SELECT COUNT(*) as count FROM ${table}`
+          )
+          counts[table] = parseInt(res.rows[0]?.count || '0', 10)
+        }
+
+        setDbStatus({
+          initialized: true,
+          version,
+          tables: counts,
+          error: null,
+        })
+      } else {
+        setDbStatus({
+          initialized: false,
+          version: 0,
+          tables: {},
+          error: 'Database not initialized yet.',
+        })
+      }
+    } catch (err: any) {
+      setDbStatus((prev) => ({
+        ...prev,
+        error: err?.message || 'Failed to query database diagnostics',
+      }))
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  useEffect(() => {
+    // Detect browser capabilities dynamically
+    setCapabilities({
+      webGpu: typeof navigator !== 'undefined' && !!navigator.gpu,
+      webWorkers: typeof Worker !== 'undefined',
+      indexedDb: typeof indexedDB !== 'undefined',
+      wasmMultiThreading: typeof SharedArrayBuffer !== 'undefined',
+    })
+
+    checkDatabase()
+    // Poll every 5 seconds for updates
+    const interval = setInterval(checkDatabase, 5000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const selectedOpt = getLLMOption(prefs.llmVariantId)
+
+  return (
+    <div className='space-y-6 max-w-4xl mx-auto w-full'>
+      <div>
+        <h1 className='font-heading text-2xl font-semibold tracking-tight'>Settings</h1>
+        <p className='text-muted-foreground text-sm mt-1'>
+          Configure model parameters, chunking preferences, and local LLM settings.
+        </p>
+      </div>
+
+      <div className='grid gap-6 md:grid-cols-2'>
+        {/* RAG Pipeline Config */}
+        <Card className='bg-card border-border/70 rounded-lg overflow-hidden'>
+          <CardHeader className='py-4 border-b border-border/50 bg-muted/20'>
+            <CardTitle className='text-base font-heading font-semibold flex items-center gap-2'>
+              <Cpu className='h-4 w-4 text-primary' />
+              Retrieval &amp; Chunking Configuration
+            </CardTitle>
+            <CardDescription className='text-xs'>Adjust chunk segmentation boundaries and hybrid rank parameters.</CardDescription>
+          </CardHeader>
+          <CardContent className='p-6 space-y-4'>
+            <div className='space-y-2'>
+              <label className='text-xs font-semibold text-muted-foreground'>Chunk Size (Characters)</label>
+              <Input
+                type='number'
+                value={activeProject?.chunkSize ?? 500}
+                onChange={(e) => handleSaveProject({ chunkSize: parseInt(e.target.value) || 500 })}
+                className='h-9 text-xs'
+                disabled={!activeProject}
+              />
+              <p className='text-[10px] text-muted-foreground'>Maximum length of text segments.</p>
+            </div>
+
+            <div className='space-y-2'>
+              <label className='text-xs font-semibold text-muted-foreground'>Chunk Overlap (Characters)</label>
+              <Input
+                type='number'
+                value={activeProject?.chunkOverlap ?? 100}
+                onChange={(e) => handleSaveProject({ chunkOverlap: parseInt(e.target.value) || 100 })}
+                className='h-9 text-xs'
+                disabled={!activeProject}
+              />
+              <p className='text-[10px] text-muted-foreground'>Buffer overlap size to preserve context between chunks.</p>
+            </div>
+
+            <div className='space-y-2'>
+              <label className='text-xs font-semibold text-muted-foreground'>Retrieval Limit (Top-K)</label>
+              <Input
+                type='number'
+                value={activeProject?.retrievalTopK ?? 5}
+                onChange={(e) => handleSaveProject({ retrievalTopK: parseInt(e.target.value) || 5 })}
+                className='h-9 text-xs'
+                disabled={!activeProject}
+              />
+              <p className='text-[10px] text-muted-foreground'>Number of chunks fed to the LLM context.</p>
+            </div>
+
+            <div className='flex items-center justify-between p-3.5 bg-secondary/40 rounded-md border border-border/50 mt-2'>
+              <div className='space-y-0.5 pr-2'>
+                <label className='text-xs font-semibold text-foreground'>Hybrid Retrieval (RRF)</label>
+                <p className='text-[10px] text-muted-foreground leading-snug'>Fuse semantic vector search with keyword exact matches.</p>
+              </div>
+              <button
+                type='button'
+                disabled={!activeProject}
+                onClick={() => handleSaveProject({ hybridRetrievalEnabled: !activeProject?.hybridRetrievalEnabled })}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${activeProject?.hybridRetrievalEnabled ? 'bg-primary' : 'bg-secondary'
+                  }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-background shadow ring-0 transition duration-200 ease-in-out ${activeProject?.hybridRetrievalEnabled ? 'translate-x-4' : 'translate-x-0'
+                    }`}
+                />
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* LLM settings */}
+        <Card className='bg-card border-border/70 rounded-lg overflow-hidden flex flex-col'>
+          <CardHeader className='py-4 border-b border-border/50 bg-muted/20 shrink-0'>
+            <CardTitle className='text-base font-heading font-semibold flex items-center gap-2'>
+              <Cpu className='h-4 w-4 text-primary' />
+              Local LLM Settings
+            </CardTitle>
+            <CardDescription className='text-xs'>Choose active local generation model and backend engine.</CardDescription>
+          </CardHeader>
+          <CardContent className='p-6 space-y-4 flex-1 flex flex-col justify-between'>
+            <div className='space-y-4'>
+              <div className='space-y-2'>
+                <label className='text-xs font-semibold text-muted-foreground'>Select Model Option</label>
+                <select
+                  value={prefs.llmVariantId}
+                  onChange={(e) => handleSavePrefs({ llmVariantId: e.target.value, llmModelId: getLLMOption(e.target.value).logicalModelId })}
+                  className='w-full px-3 py-2 text-xs bg-card border border-border/70 rounded-md focus:outline-none focus:ring-1 focus:ring-ring transition-colors h-9 text-foreground'
+                >
+                  {LLM_OPTIONS.map((opt) => (
+                    <option key={opt.id} value={opt.id}>
+                      {opt.name} ({opt.variantLabel ?? opt.engineType}) • {opt.sizeLabel}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className='p-4 bg-secondary/30 rounded-md border border-border/50 space-y-3'>
+                <div className='flex justify-between items-center text-xs'>
+                  <span className='font-semibold text-foreground'>{selectedOpt.name}</span>
+                  <span className='text-[9px] bg-secondary text-muted-foreground border border-border/50 px-1.5 py-0.5 rounded-sm font-mono uppercase'>
+                    {selectedOpt.engineType}
+                  </span>
+                </div>
+                <p className='text-[10px] text-muted-foreground leading-relaxed'>
+                  Size: {selectedOpt.sizeLabel} • Context Limit: {selectedOpt.tokenLimits.text} tokens
+                </p>
+                {selectedOpt.requirements.length > 0 && (
+                  <div className='flex flex-wrap gap-1.5'>
+                    {selectedOpt.requirements.map((req) => {
+                      const isGood = req === 'webgpu' || req === 'mobile-friendly'
+                      return (
+                        <span
+                          key={req}
+                          className={`text-[8px] px-1.5 py-0.5 rounded-sm font-semibold uppercase border ${isGood
+                              ? 'border-emerald-500/25 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400'
+                              : 'border-copper/30 bg-copper/5 text-copper'
+                            }`}
+                        >
+                          {req}
+                        </span>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className='flex justify-end pt-4 shrink-0'>
+              <Button
+                onClick={() => {
+                  setIsSaved(true)
+                  setTimeout(() => setIsSaved(false), 2000)
+                }}
+                className='flex items-center gap-2 select-none w-full sm:w-auto h-9 text-xs'
+              >
+                {isSaved ? (
+                  <>
+                    <CheckCircle2 className='h-4 w-4' />
+                    Configuration Saved!
+                  </>
+                ) : (
+                  <>
+                    <Save className='h-4 w-4' />
+                    Save Configuration
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* System Capabilities & Diagnostics */}
+      <Card className='bg-card border-border/70 rounded-lg overflow-hidden'>
+        <CardHeader className='py-4 border-b border-border/50 bg-muted/20 flex flex-row items-center justify-between gap-4'>
+          <div>
+            <CardTitle className='text-base font-heading font-semibold flex items-center gap-2'>
+              <Database className='h-4 w-4 text-primary' />
+              System Capabilities &amp; Diagnostics
+            </CardTitle>
+            <CardDescription className='text-xs'>Monitor browser features and local database statistics.</CardDescription>
+          </div>
+          <Button
+            size='sm'
+            variant='outline'
+            onClick={checkDatabase}
+            disabled={checking}
+            className='flex items-center gap-1.5 h-8 text-[11px] px-3'
+          >
+            <RefreshCw className={`h-3 w-3 ${checking ? 'animate-spin' : ''}`} />
+            Refresh Status
+          </Button>
+        </CardHeader>
+        <CardContent className='p-6'>
+          <div className='grid gap-6 md:grid-cols-2'>
+            {/* Browser capabilities sub-section */}
+            <div className='space-y-3.5 text-xs'>
+              <h4 className='font-heading font-semibold text-xs text-foreground/80 flex items-center gap-1.5 pb-1 border-b border-border/50'>
+                <ShieldCheck className='h-4 w-4 text-emerald-600 dark:text-emerald-400' />
+                Browser APIs &amp; Environment
+              </h4>
+              <div className='flex justify-between border-b border-border/20 pb-2'>
+                <span>WebGPU Support</span>
+                <span className={`font-semibold font-mono flex items-center gap-1 ${capabilities.webGpu ? 'text-emerald-500' : 'text-orange-500'}`}>
+                  <CheckCircle2 className='h-3.5 w-3.5' /> {capabilities.webGpu ? 'Available' : 'Unavailable'}
+                </span>
+              </div>
+              <div className='flex justify-between border-b border-border/20 pb-2'>
+                <span>Web Workers</span>
+                <span className={`font-semibold font-mono flex items-center gap-1 ${capabilities.webWorkers ? 'text-emerald-500' : 'text-orange-500'}`}>
+                  <CheckCircle2 className='h-3.5 w-3.5' /> {capabilities.webWorkers ? 'Supported' : 'Unsupported'}
+                </span>
+              </div>
+              <div className='flex justify-between border-b border-border/20 pb-2'>
+                <span>IndexedDB Storage</span>
+                <span className={`font-semibold font-mono flex items-center gap-1 ${capabilities.indexedDb ? 'text-emerald-500' : 'text-orange-500'}`}>
+                  <CheckCircle2 className='h-3.5 w-3.5' /> {capabilities.indexedDb ? 'Available' : 'Unavailable'}
+                </span>
+              </div>
+              <div className='flex justify-between pb-1'>
+                <span>WASM Multi-threading (COOP/COEP)</span>
+                <span className={`font-semibold font-mono flex items-center gap-1 ${capabilities.wasmMultiThreading ? 'text-emerald-500' : 'text-orange-500'}`}>
+                  <CheckCircle2 className='h-3.5 w-3.5' /> {capabilities.wasmMultiThreading ? 'Enabled' : 'Disabled'}
+                </span>
+              </div>
+            </div>
+
+            {/* Database diagnostics sub-section */}
+            <div className='space-y-3.5 text-xs'>
+              <h4 className='font-heading font-semibold text-xs text-foreground/80 flex items-center gap-1.5 pb-1 border-b border-border/50'>
+                <Database className='h-4 w-4 text-primary' />
+                Database Engine (PGlite)
+              </h4>
+              {dbStatus.error && !dbStatus.initialized ? (
+                <div className='flex items-center gap-2 text-destructive bg-destructive/10 p-3 rounded-md text-xs border border-destructive/20'>
+                  <XCircle className='h-4 w-4 shrink-0' />
+                  <span>{dbStatus.error}</span>
+                </div>
+              ) : (
+                <>
+                  <div className='flex justify-between border-b border-border/20 pb-2'>
+                    <span>Connection Status</span>
+                    <span className='text-emerald-500 font-semibold font-mono flex items-center gap-1'>
+                      <CheckCircle2 className='h-3.5 w-3.5' /> Connected
+                    </span>
+                  </div>
+                  <div className='flex justify-between border-b border-border/20 pb-2'>
+                    <span>Schema Version</span>
+                    <span className='font-mono font-semibold text-foreground'>v{dbStatus.version}</span>
+                  </div>
+
+                  <div className='space-y-1.5 pt-1.5'>
+                    <h5 className='font-medium text-[10px] text-muted-foreground uppercase tracking-wider'>
+                      Table Row Counts
+                    </h5>
+                    <div className='grid grid-cols-2 gap-2 text-[11px] bg-secondary/30 p-2.5 rounded-md border border-border/50'>
+                      {Object.entries(dbStatus.tables).map(([table, count]) => (
+                        <div key={table} className='flex justify-between border-b border-border/10 pb-0.5 last:border-0 last:pb-0'>
+                          <span className='font-mono text-muted-foreground'>{table}:</span>
+                          <span className='font-mono font-semibold text-foreground pr-1'>{count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Database Backup & Restore */}
+      <Card className='bg-card border-border/70 rounded-lg overflow-hidden'>
+        <CardHeader className='py-4 border-b border-border/50 bg-muted/20'>
+          <CardTitle className='text-base font-heading font-semibold flex items-center gap-2'>
+            <Database className='h-4 w-4 text-primary' />
+            Database Backup &amp; Restore
+          </CardTitle>
+          <CardDescription className='text-xs'>Export your local database workspace or restore it from a backup file.</CardDescription>
+        </CardHeader>
+        <CardContent className='p-6'>
+          <div className='grid gap-6 md:grid-cols-2'>
+            {/* Export Section */}
+            <div className='space-y-4 text-xs flex flex-col justify-between h-full'>
+              <div className='space-y-3'>
+                <h4 className='font-heading font-semibold text-xs text-foreground/80 flex items-center gap-1.5 pb-1 border-b border-border/50'>
+                  <Download className='h-4 w-4 text-primary' />
+                  Export Database Backup
+                </h4>
+                <p className='text-muted-foreground leading-relaxed text-[11px]'>
+                  Save all collections, documents, text chunks, vector embeddings, and search query history into a compressed backup archive. This backup can be used to transfer data to another profile or restore your workspace if browser site data is cleared.
+                </p>
+                <div className='flex items-center gap-2 text-[10px] bg-secondary/30 p-3 rounded-md border border-border/50'>
+                  <ShieldCheck className='h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0' />
+                  <span>The backup is fully contained within your browser and downloaded directly. No data is sent to any server.</span>
+                </div>
+              </div>
+              <div className='pt-2'>
+                <Button
+                  onClick={handleExport}
+                  disabled={exporting || importing}
+                  className='w-full flex items-center justify-center gap-2 h-9 text-xs cursor-pointer select-none'
+                >
+                  {exporting ? (
+                    <>
+                      <RefreshCw className='h-4 w-4 animate-spin' />
+                      Preparing Backup...
+                    </>
+                  ) : (
+                    <>
+                      <Download className='h-4 w-4' />
+                      Export Backup File
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {/* Import Section */}
+            <div className='space-y-4 text-xs flex flex-col justify-between h-full border-t md:border-t-0 md:border-l border-border/40 pt-6 md:pt-0 md:pl-6'>
+              <div className='space-y-3'>
+                <h4 className='font-heading font-semibold text-xs text-foreground/80 flex items-center gap-1.5 pb-1 border-b border-border/50'>
+                  <Upload className='h-4 w-4 text-primary' />
+                  Restore Database Backup
+                </h4>
+                <p className='text-muted-foreground leading-relaxed text-[11px]'>
+                  Load a previously exported `.tar.gz` database backup file to restore your workspace.
+                </p>
+                <div className='flex items-start gap-2 text-[10px] bg-copper/5 text-copper border border-copper/25 p-3 rounded-md leading-normal'>
+                  <AlertTriangle className='h-4 w-4 text-copper shrink-0 mt-0.5' />
+                  <span>
+                    <strong>Warning:</strong> Restoring will overwrite all current projects, documents, chunks, vectors, and query history. The application will reload automatically upon successful import.
+                  </span>
+                </div>
+
+                {importError && (
+                  <div className='flex items-center gap-2 text-destructive bg-destructive/10 p-3 rounded-md text-xs border border-destructive/20'>
+                    <XCircle className='h-4 w-4 shrink-0' />
+                    <span>{importError}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className='pt-2 space-y-2'>
+                {!showConfirmRestore ? (
+                  <div>
+                    <input
+                      type='file'
+                      accept='.tar.gz,.tgz,.tar,.gz,.zip,application/gzip,application/x-gzip,application/x-tar,application/zip'
+                      onChange={handleFileChange}
+                      className='hidden'
+                      id='db-restore-upload'
+                      disabled={exporting || importing}
+                    />
+                    <Button
+                      type='button'
+                      onClick={handleSelectFileClick}
+                      disabled={exporting || importing}
+                      variant='secondary'
+                      className='w-full flex items-center justify-center gap-2 h-9 text-xs cursor-pointer'
+                    >
+                      <Upload className='h-4 w-4' />
+                      Select Backup File
+                    </Button>
+                  </div>
+                ) : (
+                  <div className='bg-secondary/30 p-3 rounded-md border border-border/50 space-y-3'>
+                    <div className='flex justify-between items-center text-[11px]'>
+                      <span className='font-semibold truncate max-w-[200px] text-foreground'>
+                        Selected: {selectedFile?.name}
+                      </span>
+                      <span className='text-[10px] text-muted-foreground'>
+                        {selectedFile ? (selectedFile.size / (1024 * 1024)).toFixed(2) : 0} MB
+                      </span>
+                    </div>
+                    <p className='text-[10px] text-copper leading-normal'>
+                      Confirm that you want to overwrite the current database. This is a destructive operation.
+                    </p>
+                    <div className='flex gap-2'>
+                      <Button
+                        onClick={handleImport}
+                        disabled={importing}
+                        variant='destructive'
+                        className='flex-1 h-8 text-[11px] cursor-pointer'
+                      >
+                        {importing ? (
+                          <>
+                            <RefreshCw className='h-3 w-3 animate-spin mr-1' />
+                            Restoring...
+                          </>
+                        ) : (
+                          'Yes, Overwrite & Restore'
+                        )}
+                      </Button>
+                      <Button
+                        onClick={handleCancelRestore}
+                        disabled={importing}
+                        variant='outline'
+                        className='flex-1 h-8 text-[11px] cursor-pointer'
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Storage & Model Weight Cache Manager */}
+      <StorageCacheManager />
+    </div>
+  )
+}
