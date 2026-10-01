@@ -76,22 +76,28 @@ function EvalPage() {
             <CardTitle>Metrics</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-4 bg-muted rounded-lg text-center">
+            <div className="p-4 bg-muted rounded-lg text-center flex flex-col items-center justify-center">
               <div className="text-2xl font-bold">{metrics.refusalAccuracy.toFixed(1)}%</div>
-              <div className="text-xs text-muted-foreground mt-1">Refusal Accuracy (Correct Rejections)</div>
+              <div className="text-[10px] text-muted-foreground mt-1">Refusal Accuracy (Gate: {metrics.correctGateRefusals}, Verifier: {metrics.correctVerifierRefusals})</div>
             </div>
-            <div className="p-4 bg-muted rounded-lg text-center">
+            <div className="p-4 bg-muted rounded-lg text-center flex flex-col items-center justify-center">
               <div className="text-2xl font-bold">{metrics.falseRefusalRate.toFixed(1)}%</div>
-              <div className="text-xs text-muted-foreground mt-1">False Refusal Rate (Wrongly Rejected)</div>
+              <div className="text-[10px] text-muted-foreground mt-1">False Refusal Rate (Gate: {metrics.wrongGateRefusals}, Verifier: {metrics.wrongVerifierRefusals})</div>
             </div>
-            <div className="p-4 bg-muted rounded-lg text-center">
+            <div className="p-4 bg-muted rounded-lg text-center flex flex-col items-center justify-center">
+              <div className="text-2xl font-bold">{metrics.parseFailureRate.toFixed(1)}%</div>
+              <div className="text-[10px] text-muted-foreground mt-1">Parse Failure Rate</div>
+            </div>
+            <div className="p-4 bg-muted rounded-lg text-center flex flex-col items-center justify-center">
               <div className="text-2xl font-bold">{metrics.verifierDropRate.toFixed(1)}%</div>
-              <div className="text-xs text-muted-foreground mt-1">Verifier Drop Rate (Hallucinations)</div>
+              <div className="text-[10px] text-muted-foreground mt-1">Verifier Drop Rate (Hallucinations)</div>
             </div>
-            <div className="p-4 bg-muted rounded-lg text-center">
-              <div className="text-2xl font-bold">{metrics.totalCitations}</div>
-              <div className="text-xs text-muted-foreground mt-1">Total Citations</div>
-            </div>
+            {metrics.errorCount > 0 && (
+              <div className="p-4 bg-red-500/10 rounded-lg text-center flex flex-col items-center justify-center col-span-full">
+                <div className="text-2xl font-bold text-red-500">{metrics.errorCount}</div>
+                <div className="text-[10px] text-red-400 mt-1">Execution Errors (Excluded from accuracy)</div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -108,7 +114,7 @@ function EvalPage() {
                   <div className="font-medium">{r.question}</div>
                   <div className="text-xs text-muted-foreground flex gap-4">
                     <span>Expected: {r.answerable ? 'Answer' : 'Refusal'}</span>
-                    <span>Result: {r.wasRefused ? 'Refused' : 'Answered'}</span>
+                    <span className="font-bold text-foreground">Outcome: {r.outcome}</span>
                     <span>Citations: {r.citationsCount}</span>
                     {r.sentencesDropped > 0 && <span className="text-destructive font-medium">Dropped: {r.sentencesDropped}</span>}
                     {r.error && <span className="text-destructive">Error: {r.error}</span>}
