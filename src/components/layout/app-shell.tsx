@@ -1,0 +1,106 @@
+import { useState, useEffect } from 'react'
+import { useLocation } from '@tanstack/react-router'
+import { Sidebar } from '@/components/layout/sidebar'
+import { TopBar } from '@/components/layout/top-bar'
+import { OfflineIndicator } from '@/components/layout/offline-indicator'
+import { cn } from '@/lib/utils'
+
+interface AppShellProps {
+  children: React.ReactNode
+}
+
+export function AppShell({ children }: AppShellProps) {
+  const location = useLocation()
+
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('sidebar-collapsed') === 'true'
+    }
+    return false
+  })
+
+  const toggleSidebar = () => {
+    setIsCollapsed((prev) => {
+      const next = !prev
+      localStorage.setItem('sidebar-collapsed', String(next))
+      return next
+    })
+  }
+
+  const [isMobileOpen, setIsMobileOpen] = useState(false)
+
+  useEffect(() => {
+    setIsMobileOpen(false)
+  }, [location.pathname])
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'b') {
+        event.preventDefault()
+        toggleSidebar()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [])
+
+  const getPageTitle = (pathname: string) => {
+    switch (pathname) {
+      case '/':
+        return 'Chat'
+      case '/history':
+        return 'History'
+      case '/projects':
+        return 'Projects'
+      case '/documents':
+        return 'Documents'
+      case '/settings':
+        return 'Settings'
+      default:
+        return 'Local RAG'
+    }
+  }
+
+  useEffect(() => {
+    document.title = `${getPageTitle(location.pathname)} | Gyaanसूत्र`
+  }, [location.pathname])
+
+  return (
+    <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
+      <Sidebar
+        isCollapsed={isCollapsed}
+        onToggle={toggleSidebar}
+        isMobileOpen={isMobileOpen}
+        onMobileClose={() => setIsMobileOpen(false)}
+      />
+      <div className="flex flex-col flex-1 min-w-0 h-full overflow-hidden relative paper-grain ink-wash">
+        <div className="relative z-10 flex flex-col flex-1 min-h-0 overflow-hidden">
+          <TopBar
+            title={getPageTitle(location.pathname)}
+            onMenuToggle={() => setIsMobileOpen((o) => !o)}
+          />
+          <main className={cn(
+            'flex-1 min-h-0',
+            location.pathname === '/'
+              ? 'overflow-hidden flex flex-col'
+              : 'overflow-y-auto p-4 md:p-6'
+          )}>
+            {location.pathname === '/' ? (
+              <div className="flex flex-col flex-1 min-h-0 h-full">
+                {children}
+              </div>
+            ) : (
+              <div className="mx-auto max-w-7xl h-full flex flex-col page-enter">
+                {children}
+              </div>
+            )}
+          </main>
+        </div>
+      </div>
+      <OfflineIndicator />
+    </div>
+  )
+}
