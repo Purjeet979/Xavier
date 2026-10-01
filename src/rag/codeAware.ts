@@ -38,9 +38,9 @@ export function chunkTextCodeAware(
     
     // Add the code block as a single chunk
     const codeText = match[0]
-    const chunkSize = options.chunkSize || 1000
+    const maxChars = (options.chunkSize || 500) * 4
     
-    if (codeText.length <= chunkSize) {
+    if (codeText.length <= maxChars) {
       chunks.push({
         text: codeText,
         chunkIndex: 0,
@@ -64,7 +64,7 @@ export function chunkTextCodeAware(
         const line = lines[i]
         const lineLen = line.length + 1 // +1 for newline
         
-        if (currentPart.length + lineLen + closingFence.length > chunkSize && currentPart !== fenceLine + '\n') {
+        if (currentPart.length + lineLen + closingFence.length > maxChars && currentPart !== fenceLine + '\n') {
           currentPart += closingFence
           chunks.push({
             text: currentPart,
