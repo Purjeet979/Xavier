@@ -61,5 +61,9 @@ export function extractPartialAnswer(raw: string): string {
   const partialMatch = cleaned.match(/"answer"\s*:\s*"([^]*)$/);
   if (partialMatch) return partialMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
 
+  if (!cleaned.includes('"answer"') && cleaned.length > 0) {
+    return cleaned;
+  }
+
   return '';
 }

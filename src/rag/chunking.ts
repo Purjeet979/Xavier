@@ -44,6 +44,7 @@ export function chunkText(
       // Account for the newline separator we'll use to join pages
       currentOffset += pageLen + 1
     }
+    console.assert(currentOffset - 1 === text.length, 'Last page endOffset must equal text.length')
   }
 
   const chunks: Chunk[] = []

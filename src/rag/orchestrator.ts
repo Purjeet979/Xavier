@@ -43,72 +43,7 @@ function normalizePriorTurns(history: RuntimeMessage[] | undefined): RuntimeMess
     .slice(-MAX_HISTORY_TURNS)
 }
 
-function formatHistoryForRewrite(prior: RuntimeMessage[]): string {
-  return prior
-    .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
-    .join('\n')
-}
 
-/**
- * Rewrite a follow-up into a standalone search query using prior turns.
- * Falls back to the original query if rewriting fails or history is empty.
- */
-async function rewriteQueryForRetrieval(
-  query: string,
-  prior: RuntimeMessage[],
-  variant: ReturnType<typeof getLLMVariant>,
-  llmHandles: LLMRuntimeHandles,
-  abortSignal?: AbortSignal
-): Promise<string> {
-  if (prior.length === 0) return query
-
-  const rewritePrompt = `Given the conversation history and the latest user message, write a single standalone search query that captures what the user is asking for now.
-Resolve pronouns and references (e.g. "it", "that", "the second one") using the history.
-Output ONLY the search query text — no quotes, labels, or explanation.
-If the latest message is already a complete standalone question, return it unchanged.`
-
-  const rewriteUser = `Conversation history:
-${formatHistoryForRewrite(prior)}
-
-Latest user message:
-${query}
-
-Standalone search query:`
-
-  try {
-    let rewritten = ''
-    const stream = streamLLMWithToolLoop(
-      variant,
-      llmHandles,
-      [{ role: 'user', content: rewriteUser }],
-      rewritePrompt,
-      undefined,
-      {
-        maxTokens: 128,
-        thinkingEnabled: false,
-        toolsEnabled: false,
-      },
-      abortSignal
-    )
-
-    for await (const event of stream) {
-      if (abortSignal?.aborted) return query
-      if (event.type === 'text_delta' && event.text) {
-        rewritten += event.text
-      }
-    }
-
-    const cleaned = rewritten
-      .trim()
-      .replace(/^["'`]+|["'`]+$/g, '')
-      .replace(/^(standalone search query|search query|query)\s*:\s*/i, '')
-      .trim()
-
-    return cleaned.length > 0 ? cleaned : query
-  } catch {
-    return query
-  }
-}
 
 export async function* generateRAGAnswer(
   query: string,
@@ -128,14 +63,8 @@ export async function* generateRAGAnswer(
     const variant = getLLMVariant(prefs.llmVariantId)
     const prior = normalizePriorTurns(options.conversationHistory)
 
-    // 1. Rewrite follow-ups into a standalone retrieval query when history exists
-    const retrievalQuery = await rewriteQueryForRetrieval(
-      query,
-      prior,
-      variant,
-      options.llmHandles,
-      options.abortSignal
-    )
+    // 1. Skip expensive rewriting for speed; just use the raw query.
+    const retrievalQuery = query;
 
     if (options.abortSignal?.aborted) return
 
@@ -199,6 +128,7 @@ ${AnswerSchemaString}
 
 For the "citations" array, use the exact labels (e.g. "C1", "C2") of the chunks that support your answer.
 If the context doesn't contain enough information to answer, state that you don't know in the answer field, and return an empty citations array.
+When reading markdown tables, carefully align the columns to extract the correct value.
 
 Context Excerpts:
 ${contextText}`
@@ -239,45 +169,34 @@ ${contextText}`
     }
 
     let success = false
-    let finalCitations = citations
+    let isParseFallback = false
     let parsedAnswer = ''
 
     try {
       const parsed = tolerantParseJson(rawOutput)
       parsedAnswer = parsed.answer
       
-      finalCitations = parsed.citations.map(label => {
-        const m = label.match(/C(\d+)/)
-        if (!m) return null
-        const idx = parseInt(m[1], 10) - 1
-        return citations[idx]
-      }).filter(Boolean) as typeof citations
-
-      if (finalCitations.length === 0) {
-        finalCitations = citations // Verify against ALL context chunks
-      }
-
       success = true
     } catch {
       const partial = extractPartialAnswer(rawOutput)
       if (partial.trim()) {
         parsedAnswer = partial
-        finalCitations = citations // NO reliable citations, verify against ALL
         success = true
+        isParseFallback = true
       }
     }
 
     if (success) {
-      const { verifiedText, removedCount } = await verifyAnswer(parsedAnswer, finalCitations, options.embeddingModelId)
+      const { verifiedText, removedCount } = await verifyAnswer(parsedAnswer, citations, options.embeddingModelId)
       
       if (verifiedText.trim() === '') {
         debug.outcome = 'verifier_all_dropped'
         yield { type: 'verified', text: 'Not found in your material', removedCount: 0 }
         yield { type: 'citations', citations: [] }
       } else {
-        debug.outcome = 'answered'
+        debug.outcome = isParseFallback ? 'parse_fallback' : 'answered'
         yield { type: 'verified', text: verifiedText, removedCount }
-        yield { type: 'citations', citations: finalCitations }
+        yield { type: 'citations', citations }
       }
     } else {
       debug.outcome = parsedAnswer.trim() ? 'partial_fallback' : 'parse_fallback'

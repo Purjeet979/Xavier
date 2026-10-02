@@ -3,6 +3,13 @@ import type { TextExtractionResult } from './pdf'
 
 export type { TextExtractionResult, ExtractedPage } from './pdf'
 
+export class UnsupportedFileError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'UnsupportedFileError'
+  }
+}
+
 export async function extractTextFromFile(
   fileBytes: Uint8Array,
   fileName: string,
@@ -14,11 +21,19 @@ export async function extractTextFromFile(
     return extractTextFromPdf(fileBytes)
   }
 
-  // Handle other text formats
-  const textDecoder = new TextDecoder('utf-8')
-  let rawText = textDecoder.decode(fileBytes)
+  const isAllowed =
+    ['md', 'txt', 'json', 'html'].includes(extension) ||
+    ['text/markdown', 'text/plain', 'application/json', 'text/html'].includes(mimeType)
 
-  let text = ''
+  if (!isAllowed) {
+    throw new UnsupportedFileError("DOCX/images are not supported. Convert to PDF or Markdown.")
+  }
+
+  // Handle allowed text formats
+  const textDecoder = new TextDecoder('utf-8')
+  const rawText = textDecoder.decode(fileBytes)
+
+  let text: string
 
   if (extension === 'json' || mimeType === 'application/json') {
     try {

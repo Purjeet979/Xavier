@@ -1,6 +1,6 @@
 import { getDb } from '@/db/client'
 import { getEmbeddingProvider } from '@/rag/embedding-runtime'
-import { getVerifyThreshold } from './config'
+import { getVerifyThreshold, VERIFY_MIN_WORDS } from './config'
 import type { RetrievalResult } from '@/rag/retrieval'
 
 function splitSentences(text: string): { text: string; isCode: boolean }[] {
@@ -72,7 +72,7 @@ export async function verifyAnswer(
   const provider = getEmbeddingProvider('local');
   const threshold = getVerifyThreshold(embeddingModelId);
   
-  const sentencesToVerify = sentences.filter(s => !s.isCode && s.text.split(/\s+/).length >= 4);
+  const sentencesToVerify = sentences.filter(s => !s.isCode && s.text.split(/\s+/).length >= VERIFY_MIN_WORDS);
   const results = sentencesToVerify.length > 0 ? await provider.embedTexts(sentencesToVerify.map(s => s.text)) : [];
   
   const db = getDb();
@@ -95,8 +95,9 @@ export async function verifyAnswer(
   for (let i = 0; i < sentences.length; i++) {
     const s = sentences[i];
     
-    // Rule: Skip code blocks and sentences under 4 words. Keep them as-is.
-    if (s.isCode || s.text.split(/\s+/).length < 4) {
+    // Rule: Skip code blocks and sentences under VERIFY_MIN_WORDS words. Keep them as-is.
+    // Short sentences often have poor cosine similarity with large chunks due to embedding dilution.
+    if (s.isCode || s.text.split(/\s+/).length < VERIFY_MIN_WORDS) {
       verifiedTextParts.push(s.text);
       continue;
     }

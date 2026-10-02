@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, memo } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -150,7 +150,7 @@ function SourcePill({ citation, index, onClick }: { citation: any; index: number
 }
 
 // ── Individual chat bubble ───────────────────────────────────────────────────
-function ChatBubble({ message, onCopy, onCitationClick }: { message: ChatMessage; onCopy: (t: string) => void; onCitationClick: (docId: string, docName: string, chunkId?: string) => void }) {
+const ChatBubble = memo(function ChatBubble({ message, onCopy, onCitationClick }: { message: ChatMessage; onCopy: (t: string) => void; onCitationClick: (docId: string, docName: string, chunkId?: string) => void }) {
   const [showThinking, setShowThinking] = useState(false)
   const [copied, setCopied] = useState(false)
 
@@ -280,7 +280,12 @@ function ChatBubble({ message, onCopy, onCitationClick }: { message: ChatMessage
       </div>
     </div>
   )
-}
+}, (prev, next) => {
+  return prev.message.content === next.message.content &&
+         prev.message.isStreaming === next.message.isStreaming &&
+         prev.message.thinking === next.message.thinking &&
+         prev.message.citations?.length === next.message.citations?.length
+})
 
 // ── Main component ───────────────────────────────────────────────────────────
 function ChatComponent() {

@@ -27,6 +27,8 @@ export async function extractTextFromPdf(
   const parser = new LiteParse({
     ocrEnabled: false,
     outputFormat: 'json',
+    imageMode: 'off',
+    extractLinks: false,
   })
 
   const result = await parser.parse(pdfBytes)
@@ -37,13 +39,15 @@ export async function extractTextFromPdf(
   if (typeof result === 'string') {
     text = result
   } else if (result && typeof result === 'object') {
-    const rawResult = result as any
-    text = rawResult.text || ''
-    if (Array.isArray(rawResult.pages)) {
-      pages = rawResult.pages.map((p: any) => ({
-        pageNumber: p.page_number || p.pageNumber || 1,
-        text: p.text || '',
+    const res = result as import('@llamaindex/liteparse-wasm').ParseResult
+    if (res.pages && res.pages.length > 0) {
+      pages = res.pages.map(p => ({
+        pageNumber: p.pageNum,
+        text: p.markdown || p.text || '',
       }))
+      text = pages.map(p => p.text).join('\n')
+    } else {
+      text = res.text || ''
     }
   }
 

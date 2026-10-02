@@ -110,23 +110,27 @@ function DocumentsComponent() {
 
         queryClient.invalidateQueries({ queryKey: ['documents'] })
 
-        try {
-          await indexDocument({
-            docId,
-            fileBytes,
-            fileName: file.name,
-            mimeType: file.type,
-            projectId: activeProject.id,
-            embeddingModelId: activeProject.embeddingModelId,
-            chunkSize: activeProject.chunkSize ?? 500,
-            chunkOverlap: activeProject.chunkOverlap ?? 100,
-            onStatus: setUploadingStatus,
-          })
-        } catch (err: any) {
+        // Run indexing in background to unblock UI
+        indexDocument({
+          docId,
+          fileBytes,
+          fileName: file.name,
+          mimeType: file.type,
+          projectId: activeProject.id,
+          embeddingModelId: activeProject.embeddingModelId,
+          chunkSize: activeProject.chunkSize ?? 500,
+          chunkOverlap: activeProject.chunkOverlap ?? 100,
+          onStatus: () => {}, // Don't bind to local state as it will unmount/clear
+        }).then(() => {
+          queryClient.invalidateQueries({ queryKey: ['documents'] })
+          queryClient.invalidateQueries({ queryKey: ['project-doc-counts'] })
+          queryClient.invalidateQueries({ queryKey: ['project-docs'] })
+        }).catch((err: any) => {
           const message = err?.message || String(err)
-          await markDocumentFailed(docId, message)
-          throw err
-        }
+          markDocumentFailed(docId, message).then(() => {
+            queryClient.invalidateQueries({ queryKey: ['documents'] })
+          })
+        })
       }
     },
     onSuccess: () => {
@@ -155,22 +159,27 @@ function DocumentsComponent() {
       setUploadingStatus(`Retrying ${stored.fileName}...`)
       const fileBytes = new Uint8Array(stored.bytes)
 
-      try {
-        await indexDocument({
-          docId,
-          fileBytes,
-          fileName: stored.fileName,
-          mimeType: stored.mimeType,
-          projectId: activeProject.id,
-          embeddingModelId: activeProject.embeddingModelId,
-          chunkSize: activeProject.chunkSize ?? 500,
-          chunkOverlap: activeProject.chunkOverlap ?? 100,
-          onStatus: setUploadingStatus,
+      // Run in background
+      indexDocument({
+        docId,
+        fileBytes,
+        fileName: stored.fileName,
+        mimeType: stored.mimeType,
+        projectId: activeProject.id,
+        embeddingModelId: activeProject.embeddingModelId,
+        chunkSize: activeProject.chunkSize ?? 500,
+        chunkOverlap: activeProject.chunkOverlap ?? 100,
+        onStatus: () => {},
+      }).then(() => {
+        queryClient.invalidateQueries({ queryKey: ['documents'] })
+        queryClient.invalidateQueries({ queryKey: ['project-doc-counts'] })
+        queryClient.invalidateQueries({ queryKey: ['project-docs'] })
+        queryClient.invalidateQueries({ queryKey: ['document-chunks'] })
+      }).catch((err: any) => {
+        markDocumentFailed(docId, err?.message || String(err)).then(() => {
+          queryClient.invalidateQueries({ queryKey: ['documents'] })
         })
-      } catch (err: any) {
-        await markDocumentFailed(docId, err?.message || String(err))
-        throw err
-      }
+      })
     },
     onSuccess: () => {
       setUploadingStatus(null)
@@ -472,8 +481,10 @@ function DocumentsComponent() {
                             </Button>
                           </div>
                         </div>
-                        {doc.status === 'failed' && doc.error_message && (
-                          <p className='text-[10px] text-destructive/90 leading-snug'>{doc.error_message}</p>
+                        {(doc.status === 'failed' || doc.status === 'completed') && doc.error_message && (
+                          <p className={`text-[10px] leading-snug ${doc.status === 'failed' ? 'text-destructive/90' : 'text-amber-600/90 dark:text-amber-400/90'}`}>
+                            {doc.error_message}
+                          </p>
                         )}
                         <div className='flex items-center gap-2 text-[10px] text-muted-foreground flex-wrap'>
                           <span className='font-mono'>{formatBytes(doc.size_bytes)}</span>
