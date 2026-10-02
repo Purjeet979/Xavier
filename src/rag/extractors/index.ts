@@ -3,6 +3,23 @@ import type { TextExtractionResult } from './pdf'
 
 export type { TextExtractionResult, ExtractedPage } from './pdf'
 
+export class UnsupportedFileError extends Error {
+  extension: string
+  fileName: string
+
+  constructor(extension: string, fileName: string) {
+    const extDisplay = extension ? `.${extension}` : 'unknown'
+    super(
+      `Unsupported file format (${extDisplay}) for "${fileName}". Supported formats are PDF (.pdf), Markdown (.md), TXT (.txt), JSON (.json), and HTML (.html).`
+    )
+    this.name = 'UnsupportedFileError'
+    this.extension = extension
+    this.fileName = fileName
+  }
+}
+
+const SUPPORTED_EXTENSIONS = new Set(['pdf', 'md', 'markdown', 'txt', 'json', 'html', 'htm'])
+
 export async function extractTextFromFile(
   fileBytes: Uint8Array,
   fileName: string,
@@ -10,15 +27,19 @@ export async function extractTextFromFile(
 ): Promise<TextExtractionResult> {
   const extension = fileName.split('.').pop()?.toLowerCase() || ''
 
-  if (extension === 'pdf' || mimeType === 'application/pdf') {
-    return extractTextFromPdf(fileBytes)
+  if (!SUPPORTED_EXTENSIONS.has(extension)) {
+    throw new UnsupportedFileError(extension, fileName)
   }
 
-  // Handle other text formats
-  const textDecoder = new TextDecoder('utf-8')
-  let rawText = textDecoder.decode(fileBytes)
+  if (extension === 'pdf' || mimeType === 'application/pdf') {
+    return extractTextFromPdf(fileBytes, fileName)
+  }
 
-  let text = ''
+  // Handle text formats
+  const textDecoder = new TextDecoder('utf-8')
+  const rawText = textDecoder.decode(fileBytes)
+
+  let text: string
 
   if (extension === 'json' || mimeType === 'application/json') {
     try {
@@ -27,7 +48,7 @@ export async function extractTextFromFile(
     } catch {
       text = rawText
     }
-  } else if (extension === 'html' || mimeType === 'text/html') {
+  } else if (extension === 'html' || extension === 'htm' || mimeType === 'text/html') {
     text = stripHtmlTags(rawText)
   } else {
     text = rawText
@@ -35,10 +56,15 @@ export async function extractTextFromFile(
 
   text = normalizeText(text)
 
+  if (!text || text.trim().length === 0) {
+    throw new Error(`No usable text found in "${fileName}". The file appears to be empty.`)
+  }
+
   return {
     text,
     metadata: {
       extension,
+      pageCount: 1,
     },
   }
 }
@@ -63,3 +89,4 @@ function stripHtmlTags(html: string): string {
     .replace(/[ \t]+/g, ' ')
     .trim()
 }
+
