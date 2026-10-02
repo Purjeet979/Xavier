@@ -6,6 +6,58 @@ A fully local, private Retrieval-Augmented Generation (RAG) system running entir
 
 Gyaanसूत्र brings a complete backend RAG pipeline into the browser using WebAssembly and WebGPU. 
 
+```mermaid
+flowchart TD
+    subgraph Browser["🌐 Local Browser Environment (100% Private)"]
+        direction TB
+        
+        subgraph UI["💻 React UI (Main Thread)"]
+            Chat[Chat Interface]
+            DocPanel[Document Manager]
+            Verifier[Answer Verifier]
+        end
+
+        subgraph Worker["⚙️ Web Worker (Background)"]
+            Parser[LiteParse WASM]
+            Chunker[Table & Code-Aware Chunker]
+        end
+
+        subgraph AI["🧠 WebGPU / WASM AI Engine"]
+            EmbedModel[Transformers.js Embeddings]
+            LLM[WebLLM / Local LLM Engine]
+        end
+
+        subgraph DB["🗄️ IndexedDB Storage"]
+            PGlite[(PGlite + pgvector)]
+        end
+
+        %% Ingestion Flow (Blue)
+        DocPanel -- "1. Upload File" --> Parser
+        Parser -- "2. Extract Text" --> Chunker
+        Chunker -- "3. Semantic Chunks" --> EmbedModel
+        EmbedModel -- "4. Vectors" --> PGlite
+        Chunker -- "5. Text & Metadata" --> PGlite
+
+        %% RAG Flow (Green)
+        Chat -- "A. User Query" --> LLM
+        LLM -. "B. Rewrite (if history exists)" .-> EmbedModel
+        EmbedModel -- "C. Query Vector" --> PGlite
+        PGlite -- "D. Hybrid Search (RRF)" --> Chat
+        Chat -- "E. Prompt + Context" --> LLM
+        LLM -- "F. Draft Answer" --> Verifier
+        Verifier -- "G. Verified Stream" --> Chat
+        
+        %% Styling
+        classDef primary fill:#2563eb,stroke:#1d4ed8,stroke-width:2px,color:#fff;
+        classDef secondary fill:#059669,stroke:#047857,stroke-width:2px,color:#fff;
+        classDef storage fill:#d97706,stroke:#b45309,stroke-width:2px,color:#fff;
+        
+        class UI,Worker primary;
+        class AI secondary;
+        class PGlite storage;
+    end
+``` 
+
 ### Data Ingestion Workflow
 1. **Document Parsing**: Files (`.pdf`, `.md`, `.txt`, `.html`, `.csv`, `.json`) are processed natively in the browser. PDFs are parsed locally via `@llamaindex/liteparse-wasm` without external remote servers.
 2. **Intelligent Chunking**: The text is split into semantic chunks (with special Code-Aware handling to prevent code blocks from being shredded inappropriately). This runs in an off-main-thread Web Worker to keep the UI smooth.
