@@ -7,7 +7,7 @@ import { TOP_K_CONTEXT } from './grounding/config'
 import { buildContext } from './grounding/context'
 import { AnswerSchemaString, tolerantParseJson, extractPartialAnswer } from './grounding/schema'
 import { verifyAnswer } from './grounding/verifier'
-import { getEffectiveTier } from './tiers'
+import { getEffectiveTierAsync } from './tiers'
 
 export interface RagDebugInfo {
   userQuery: string
@@ -172,7 +172,7 @@ export async function* generateRAGAnswer(
 
     const citations = allCitations.slice(0, TOP_K_CONTEXT)
 
-    const effectiveTier = getEffectiveTier()
+    const effectiveTier = await getEffectiveTierAsync()
     if (effectiveTier === 0) {
       debug.outcome = 'tier0_evidence_only'
       yield { type: 'debug', debug }
@@ -215,7 +215,7 @@ ${contextText}`
       systemPrompt,
       undefined,
       {
-        maxTokens: 1024,
+        maxTokens: 384,
         thinkingEnabled: false,
         toolsEnabled: false,
         temperature: 0,
@@ -263,6 +263,10 @@ ${contextText}`
       if (partial.trim()) {
         parsedAnswer = partial
         finalCitations = citations // NO reliable citations, verify against ALL
+        success = true
+      } else if (rawOutput.trim()) {
+        parsedAnswer = rawOutput.trim()
+        finalCitations = citations
         success = true
       }
     }
