@@ -21,9 +21,11 @@ import {
 import { getDb, isDbInitialized } from '@/db/client'
 import { useQuery } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
-import { getLLMVariant, getLLMOption, LLM_OPTIONS } from '@/llm/llm-models'
+import { getLLMVariant, getLLMOption, LLM_OPTIONS, engineRequiresWebGPU } from '@/llm/llm-models'
+import { useWebGPU } from '@/hooks/use-webgpu'
 import { EMBEDDING_MODELS } from '@/rag/embedding-models'
 import { generateRAGAnswer, type RagDebugInfo } from '@/rag/orchestrator'
+import { getEffectiveTier } from '@/rag/tiers'
 import { RetrievalDebugPanel } from '@/components/chat/retrieval-debug-panel'
 import { EvidencePanel } from '@/components/chat/evidence-panel'
 import { ChunkExplorer } from '@/components/documents/chunk-explorer'
@@ -284,6 +286,7 @@ function ChatBubble({ message, onCopy, onCitationClick }: { message: ChatMessage
 
 // ── Main component ───────────────────────────────────────────────────────────
 function ChatComponent() {
+  const webgpu = useWebGPU()
   const [dbReady, setDbReady] = useState(isDbInitialized())
   const [queryText, setQueryText] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -398,6 +401,16 @@ function ChatComponent() {
   const variant = getLLMVariant(prefs.llmVariantId)
   const option = getLLMOption(prefs.llmVariantId)
 
+  // Auto-correct: if current variant requires WebGPU but device lacks it, pick first compatible one
+  useEffect(() => {
+    if (webgpu === false && engineRequiresWebGPU(variant.engine)) {
+      const compatible = LLM_OPTIONS.find((o) => !engineRequiresWebGPU(o.engineType))
+      if (compatible && compatible.id !== prefs.llmVariantId) {
+        updatePreferences({ llmVariantId: compatible.id, llmModelId: compatible.logicalModelId })
+      }
+    }
+  }, [webgpu, prefs.llmVariantId, variant.engine, updatePreferences])
+
   useEffect(() => {
     if (clear) {
       if (abortControllerRef.current) {
@@ -423,13 +436,23 @@ function ChatComponent() {
     try {
       if (!embeddingReady) await loadEmbeddingModel()
       if (!isLlmReady) await loadLlmModel()
-    } catch (err: any) { console.error('Failed to initialize models:', err) }
+    } catch (err: any) {
+      console.error('Failed to initialize models:', err)
+      // The onError hooks in system-init-context already propagate a specific error via
+      // setLoadingError. Only set a generic fallback when the thrown error itself is useful.
+      const msg = err?.message || ''
+      if (!msg.includes('Failed to load LLM model')) {
+        setLoadingError(msg || 'Failed to initialize AI models. Check WebGPU or network connection.')
+      }
+    }
   }
+
+  const effectiveTier = getEffectiveTier()
 
   const handleSearch = async (e?: React.FormEvent) => {
     e?.preventDefault()
     const q = queryText.trim()
-    if (!q || isGenerating || isSwitchingModel || !isLlmReady) return
+    if (!q || isGenerating || isSwitchingModel || (!isLlmReady && effectiveTier !== 0)) return
 
     const uId = crypto.randomUUID()
     const aId = crypto.randomUUID()
@@ -475,6 +498,9 @@ function ChatComponent() {
           setStatusMessage('Searching documents...')
           setMessages((prev) => prev.map((m) => m.id === aId ? { ...m, retrievalQuery: chunk.retrievalQuery } : m))
         } else if (chunk.type === 'debug' && chunk.debug) {
+          if (chunk.debug.grounding?.pass) {
+            setStatusMessage('Generating answer in browser...')
+          }
           setMessages((prev) => prev.map((m) => m.id === aId ? { ...m, debug: chunk.debug } : m))
         } else if (chunk.type === 'citations' && chunk.citations) {
           finalCitations = chunk.citations
@@ -562,7 +588,10 @@ function ChatComponent() {
   const modelPickerDisabled = isGenerating || isSwitchingModel || llmLoading
 
   useEffect(() => {
-    if (isLoaded) setChatReady(true)
+    if (isLoaded) {
+      const timer = setTimeout(() => setChatReady(true), 0)
+      return () => clearTimeout(timer)
+    }
   }, [isLoaded])
 
   // ── Initialization screen ────────────────────────────────────────────────
@@ -617,9 +646,14 @@ function ChatComponent() {
                   onChange={(e) => updatePreferences({ llmVariantId: e.target.value, llmModelId: getLLMOption(e.target.value).logicalModelId })}
                   className="w-full bg-card border border-border/70 rounded-md p-2.5 text-xs text-foreground focus:ring-1 focus:ring-ring outline-none disabled:opacity-50"
                 >
-                  {LLM_OPTIONS.map((opt) => (
-                    <option key={opt.id} value={opt.id}>{opt.name} ({opt.variantLabel}) • {opt.sizeLabel}</option>
-                  ))}
+                {LLM_OPTIONS.map((opt) => {
+                    const unavailable = webgpu === false && engineRequiresWebGPU(opt.engineType)
+                    return (
+                      <option key={opt.id} value={opt.id} disabled={unavailable}>
+                        {opt.name} ({opt.variantLabel}) • {opt.sizeLabel}{unavailable ? ' (requires WebGPU)' : ''}
+                      </option>
+                    )
+                  })}
                 </select>
               </div>
             </div>
@@ -650,10 +684,29 @@ function ChatComponent() {
               </div>
             )}
             {!isInitializing && (
-              <Button onClick={handleInitialize} className="w-full h-10 font-semibold rounded-md flex items-center justify-center gap-2 transition-all active:scale-[0.99]">
-                <Sparkles className="h-4 w-4" />
-                Initialize AI Engines
-              </Button>
+              <div className="space-y-2">
+                <Button onClick={handleInitialize} className="w-full h-10 font-semibold rounded-md flex items-center justify-center gap-2 transition-all active:scale-[0.99]">
+                  <Sparkles className="h-4 w-4" />
+                  Initialize AI Engines
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={async () => {
+                    if (!embeddingReady) {
+                      try {
+                        await loadEmbeddingModel()
+                      } catch {
+                        // ignore
+                      }
+                    }
+                    setChatReady(true)
+                  }}
+                  className="w-full h-9 text-xs font-medium rounded-md border-border/70 hover:bg-muted/50"
+                >
+                  Continue in Evidence-Only Mode (Tier 0 • No GPU Required)
+                </Button>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -752,7 +805,7 @@ function ChatComponent() {
                   }}
                   onKeyDown={handleKeyDown}
                   placeholder="Ask anything... (Enter to send, Shift+Enter for newline)"
-                  disabled={isGenerating || isSwitchingModel || !dbReady || !isLlmReady}
+                  disabled={isGenerating || isSwitchingModel || !dbReady || (!isLlmReady && effectiveTier !== 0)}
                   className="flex-1 resize-none bg-transparent border-0 outline-none text-sm text-foreground placeholder:text-muted-foreground/45 leading-relaxed py-1 min-h-[28px] max-h-[140px] disabled:opacity-50"
                 />
                 {isGenerating ? (
@@ -769,7 +822,7 @@ function ChatComponent() {
                 ) : (
                   <button
                     type="submit"
-                    disabled={!dbReady || !isLlmReady || isSwitchingModel || !queryText.trim()}
+                    disabled={!dbReady || (!isLlmReady && effectiveTier !== 0) || isSwitchingModel || !queryText.trim()}
                     className="shrink-0 h-8 w-8 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed mt-0.5"
                   >
                     <Send className="h-3.5 w-3.5" />
@@ -795,7 +848,7 @@ function ChatComponent() {
                     ) : (
                       <Cpu className="h-2.5 w-2.5 text-primary" />
                     )}
-                    <span className="font-medium text-foreground">{option.name}</span>
+                    <span className="font-medium text-foreground">{prefs.overrideHardwareTier === 0 ? 'Evidence-Only (Tier 0)' : option.name}</span>
                     <ChevronDown className={cn('h-2.5 w-2.5 transition-transform', modelOpen && 'rotate-180')} />
                   </button>
 
@@ -809,15 +862,49 @@ function ChatComponent() {
                         <span className="text-[10px] text-muted-foreground">Loads in browser</span>
                       </div>
                       <div className="max-h-64 overflow-y-auto py-1.5" role="listbox">
+                        <button
+                          type="button"
+                          role="option"
+                          aria-selected={prefs.overrideHardwareTier === 0}
+                          onClick={() => {
+                            updatePreferences({ overrideHardwareTier: 0 })
+                            setModelOpen(false)
+                          }}
+                          className={cn(
+                            'w-full flex items-start gap-2.5 px-3 py-2 text-xs hover:bg-secondary/40 text-left border-b border-border/30',
+                            prefs.overrideHardwareTier === 0 && 'bg-primary/5 text-primary'
+                          )}
+                        >
+                          <span className={cn(
+                            'mt-0.5 h-4 w-4 rounded-sm border flex items-center justify-center shrink-0',
+                            prefs.overrideHardwareTier === 0 ? 'bg-primary border-primary text-primary-foreground' : 'border-border'
+                          )}>
+                            {prefs.overrideHardwareTier === 0 && <Check className="h-2.5 w-2.5" />}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-center justify-between gap-2">
+                              <span className="font-medium truncate">Tier 0 (Evidence-Only)</span>
+                              <span className="text-[9px] text-muted-foreground shrink-0 font-mono">
+                                Instant
+                              </span>
+                            </span>
+                            <span className="block text-[10px] text-muted-foreground mt-0.5">
+                              Extracts answers directly from retrieved documents
+                            </span>
+                          </span>
+                        </button>
                         {LLM_OPTIONS.map((opt) => {
-                          const selected = opt.id === prefs.llmVariantId
+                          const selected = prefs.overrideHardwareTier !== 0 && opt.id === prefs.llmVariantId
                           return (
                             <button
                               key={opt.id}
                               type="button"
                               role="option"
                               aria-selected={selected}
-                              onClick={() => handleSwitchModel(opt.id)}
+                              onClick={() => {
+                                updatePreferences({ overrideHardwareTier: undefined })
+                                handleSwitchModel(opt.id)
+                              }}
                               className={cn(
                                 'w-full flex items-start gap-2.5 px-3 py-2 text-xs hover:bg-secondary/40 text-left',
                                 selected && 'bg-primary/5 text-primary'
