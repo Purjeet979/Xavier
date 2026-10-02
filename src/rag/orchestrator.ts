@@ -3,7 +3,7 @@ import { loadPreferences } from '@/lib/preferences'
 import { getLLMVariant } from '@/llm/llm-models'
 import { streamLLMWithToolLoop, type RuntimeMessage, type LLMRuntimeHandles } from '@/llm/llm-runtime'
 import { evaluateGate } from './grounding/gate'
-import { TOP_K_CONTEXT } from './grounding/config'
+import { TOP_K_CONTEXT, REWRITE_FOLLOWUPS, REWRITE_SKIP_WORDS, REWRITE_TIMEOUT_MS } from './grounding/config'
 import { buildContext } from './grounding/context'
 import { AnswerSchemaString, tolerantParseJson, extractPartialAnswer } from './grounding/schema'
 import { verifyAnswer } from './grounding/verifier'
@@ -26,8 +26,9 @@ export interface RagDebugInfo {
 }
 
 export interface RAGAnswerChunk {
-  type: 'text_delta' | 'thinking_delta' | 'citations' | 'retrieval_query' | 'debug' | 'done' | 'error' | 'verified'
+  type: 'text_delta' | 'thinking_delta' | 'citations' | 'retrieval_query' | 'debug' | 'done' | 'error' | 'verified' | 'context_chunks'
   text?: string
+  contextChunks?: RetrievalResult[]
   citations?: RetrievalResult[]
   removedCount?: number
   /** Standalone search query used for retrieval (may differ from the user turn). */
@@ -45,9 +46,84 @@ function normalizePriorTurns(history: RuntimeMessage[] | undefined): RuntimeMess
     .filter((m) => m.content.trim().length > 0)
     .slice(-MAX_HISTORY_TURNS)
 }
+function formatHistoryForRewrite(prior: RuntimeMessage[]): string {
+  return prior
+    .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+    .join('\n')
+}
 
+/**
+ * Rewrite a follow-up into a standalone search query using prior turns.
+ * Falls back to the original query if rewriting fails or history is empty.
+ */
+async function rewriteQueryForRetrieval(
+  query: string,
+  prior: RuntimeMessage[],
+  variant: ReturnType<typeof getLLMVariant>,
+  llmHandles: LLMRuntimeHandles,
+  abortSignal?: AbortSignal
+): Promise<string> {
+  if (!REWRITE_FOLLOWUPS) return query
+  if (prior.length === 0) return query
+  if (query.split(/\s+/).length >= REWRITE_SKIP_WORDS) return query
 
+  const rewritePrompt = `Given the conversation history and the latest user message, write a single standalone search query that captures what the user is asking for now.
+Resolve pronouns and references (e.g. "it", "that", "the second one") using the history.
+Output ONLY the search query text — no quotes, labels, or explanation.
+If the latest message is already a complete standalone question, return it unchanged.`
 
+  const rewriteUser = `Conversation history:
+${formatHistoryForRewrite(prior)}
+
+Latest user message:
+${query}
+
+Standalone search query:`
+
+  try {
+    const timeoutController = new AbortController()
+    if (abortSignal) {
+      abortSignal.addEventListener('abort', () => timeoutController.abort())
+    }
+    const timeoutId = setTimeout(() => timeoutController.abort(), REWRITE_TIMEOUT_MS)
+
+    let rewritten = ''
+    const stream = streamLLMWithToolLoop(
+      variant,
+      llmHandles,
+      [{ role: 'user', content: rewriteUser }],
+      rewritePrompt,
+      undefined,
+      {
+        maxTokens: 128,
+        thinkingEnabled: false,
+        toolsEnabled: false,
+      },
+      timeoutController.signal
+    )
+
+    for await (const event of stream) {
+      if (timeoutController.signal.aborted) {
+        clearTimeout(timeoutId)
+        return query
+      }
+      if (event.type === 'text_delta' && event.text) {
+        rewritten += event.text
+      }
+    }
+    clearTimeout(timeoutId)
+
+    const cleaned = rewritten
+      .trim()
+      .replace(/^["'`]+|["'`]+$/g, '')
+      .replace(/^(standalone search query|search query|query)\s*:\s*/i, '')
+      .trim()
+
+    return cleaned.length > 0 ? cleaned : query
+  } catch {
+    return query
+  }
+}
 export async function* generateRAGAnswer(
   query: string,
   options: {
@@ -66,8 +142,14 @@ export async function* generateRAGAnswer(
     const variant = getLLMVariant(prefs.llmVariantId)
     const prior = normalizePriorTurns(options.conversationHistory)
 
-    // 1. Skip expensive rewriting for speed; just use the raw query.
-    const retrievalQuery = query;
+    // 1. Rewrite follow-ups into a standalone retrieval query when history exists
+    const retrievalQuery = await rewriteQueryForRetrieval(
+      query,
+      prior,
+      variant,
+      options.llmHandles,
+      options.abortSignal
+    )
 
     if (options.abortSignal?.aborted) return
 
@@ -103,6 +185,7 @@ export async function* generateRAGAnswer(
     }
 
     const citations = allCitations.slice(0, TOP_K_CONTEXT)
+    yield { type: 'context_chunks', contextChunks: citations }
 
     const effectiveTier = getEffectiveTier()
     if (effectiveTier === 0) {
@@ -185,13 +268,17 @@ ${contextText}`
 
       const validCitations: typeof citations = []
       const invalidIds: string[] = []
+      const seenIdx = new Set<number>()
 
       rawCitedIds.forEach((label: string) => {
         const m = label.match(/C(\d+)/)
         if (m) {
           const idx = parseInt(m[1], 10) - 1
           if (citations[idx]) {
-            validCitations.push(citations[idx])
+            if (!seenIdx.has(idx)) {
+              validCitations.push(citations[idx])
+              seenIdx.add(idx)
+            }
             return
           }
         }
