@@ -19,12 +19,13 @@ export function tolerantParseJson(raw: string): { answer: string; citations: str
   
   try {
     const obj = JSON.parse(cleaned)
+    const ans = obj.answer || obj.response || obj.result || obj.text || obj.output || (typeof obj === 'string' ? obj : '');
     return {
-      answer: typeof obj.answer === 'string' ? obj.answer : '',
+      answer: typeof ans === 'string' ? ans : '',
       citations: Array.isArray(obj.citations) ? obj.citations : []
     }
   } catch (err) {
-    const ansMatch = cleaned.match(/"answer"\s*:\s*"([^]*?)"\s*(?:,|\})/);
+    const ansMatch = cleaned.match(/"(?:answer|response|result|text|output)"\s*:\s*"([^]*?)"\s*(?:,|\})/);
     let answer = ansMatch ? ansMatch[1] : '';
     answer = answer.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
 
@@ -37,6 +38,9 @@ export function tolerantParseJson(raw: string): { answer: string; citations: str
     }
 
     if (!answer && citations.length === 0) {
+      if (cleaned.length > 0 && !cleaned.startsWith('{')) {
+        return { answer: cleaned, citations: [] };
+      }
       throw new Error('Could not parse any structured fields from output', { cause: err });
     }
     return { answer, citations };
@@ -47,19 +51,26 @@ export function extractPartialAnswer(raw: string): string {
   let cleaned = raw.trim();
   if (cleaned.startsWith('```json')) cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '');
   else if (cleaned.startsWith('```')) cleaned = cleaned.replace(/^```\s*/, '');
+
+  if (!cleaned) return '';
   
   try {
     const obj = JSON.parse(cleaned);
-    if (typeof obj.answer === 'string') return obj.answer;
+    const ans = obj.answer || obj.response || obj.result || obj.text || obj.output;
+    if (typeof ans === 'string') return ans;
   } catch {
     // ignore
   }
 
-  const completeMatch = cleaned.match(/"answer"\s*:\s*"([^]*?)"\s*(?:,|\})/);
+  const completeMatch = cleaned.match(/"(?:answer|response|result|text|output)"\s*:\s*"([^]*?)"\s*(?:,|\})/);
   if (completeMatch) return completeMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
 
-  const partialMatch = cleaned.match(/"answer"\s*:\s*"([^]*)$/);
+  const partialMatch = cleaned.match(/"(?:answer|response|result|text|output)"\s*:\s*"([^]*)$/);
   if (partialMatch) return partialMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+
+  if (!cleaned.startsWith('{') && !cleaned.startsWith('```')) {
+    return cleaned;
+  }
 
   return '';
 }

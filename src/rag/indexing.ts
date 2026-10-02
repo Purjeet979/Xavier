@@ -99,6 +99,8 @@ export async function indexDocument(params: IndexDocumentParams): Promise<void> 
       ocrRequired,
       pageCount: extraction.metadata?.pageCount || 1,
       extension: extraction.metadata?.extension || fileName.split('.').pop(),
+      warning: extraction.metadata?.warning || null,
+      unusablePages: extraction.metadata?.unusablePages || null,
     })
 
     // Clear any previous chunks before writing (needed for retry)
