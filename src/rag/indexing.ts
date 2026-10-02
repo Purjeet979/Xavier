@@ -40,9 +40,10 @@ export async function indexDocument(params: IndexDocumentParams): Promise<void> 
     ['processing', docId]
   )
 
-  const { extraction, chunks } = await new Promise<{
+  const { extraction, chunks, warning } = await new Promise<{
     extraction: any
     chunks: any[]
+    warning?: string
   }>((resolve, reject) => {
     const worker = new Worker(
       new URL('../workers/indexing.worker.ts', import.meta.url),
@@ -58,10 +59,10 @@ export async function indexDocument(params: IndexDocumentParams): Promise<void> 
     })
 
     worker.onmessage = (event) => {
-      const { status, extraction: ext, chunks: ch, error } = event.data
+      const { status, extraction: ext, chunks: ch, error, warning } = event.data
       if (status === 'success') {
         worker.terminate()
-        resolve({ extraction: ext, chunks: ch })
+        resolve({ extraction: ext, chunks: ch, warning })
       } else {
         worker.terminate()
         reject(new Error(error || 'Worker parsing/chunking failed'))
@@ -99,6 +100,8 @@ export async function indexDocument(params: IndexDocumentParams): Promise<void> 
       ocrRequired,
       pageCount: extraction.metadata?.pageCount || 1,
       extension: extraction.metadata?.extension || fileName.split('.').pop(),
+      warning: extraction.metadata?.warning || null,
+      unusablePages: extraction.metadata?.unusablePages || null,
     })
 
     // Clear any previous chunks before writing (needed for retry)
@@ -106,9 +109,9 @@ export async function indexDocument(params: IndexDocumentParams): Promise<void> 
       await tx.query('DELETE FROM chunks WHERE document_id = $1', [docId])
       await tx.query(
         `UPDATE documents
-         SET status = $1, metadata_json = $2, error_message = NULL, updated_at = CURRENT_TIMESTAMP
-         WHERE id = $3`,
-        ['completed', metadataJson, docId]
+         SET status = $1, metadata_json = $2, error_message = $3, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $4`,
+        ['completed', metadataJson, warning || null, docId]
       )
 
       for (let i = 0; i < chunks.length; i++) {
@@ -137,7 +140,7 @@ export async function indexDocument(params: IndexDocumentParams): Promise<void> 
               endOffset: chunk.endOffset,
               pageNumber: chunk.pageNumber,
               headingPath: chunk.headingPath,
-              type: chunk.type,
+              type: chunk.type || 'text',
             }),
           ]
         )

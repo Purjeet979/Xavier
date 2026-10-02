@@ -8,6 +8,11 @@ self.onmessage = async (e: MessageEvent) => {
     // Extract text
     const extraction = await extractTextFromFile(fileBytes, fileName, mimeType)
 
+    const warning = extraction.metadata?.warning as string | undefined
+    if (!extraction.text || extraction.text.trim().length === 0) {
+      throw new Error(`No usable text found in "${fileName}".`)
+    }
+
     // Chunk text (code-aware)
     const chunks = chunkTextCodeAware(extraction.text, fileName, {
       chunkSize: options?.chunkSize,
@@ -15,11 +20,16 @@ self.onmessage = async (e: MessageEvent) => {
       pages: extraction.pages,
     })
 
+    if (!chunks || chunks.length === 0) {
+      throw new Error('No extractable text. This looks like an image-only or scanned PDF (OCR is not enabled).')
+    }
+
     self.postMessage({
       status: 'success',
       docId,
       extraction,
       chunks,
+      warning,
     })
   } catch (error: any) {
     self.postMessage({
@@ -30,3 +40,4 @@ self.onmessage = async (e: MessageEvent) => {
   }
 }
 export {}
+

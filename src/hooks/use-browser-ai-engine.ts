@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react'
+import { webGPUReady } from '@/llm/llm-models'
 import {
   streamAiSdkToEvents,
   type AiSdkProvider,
@@ -83,12 +84,48 @@ export function useBrowserAiEngine<TModel>({
         beforeSessionInit?.()
         onLoadMessage?.('Downloading model weights...')
 
-        const model = createModel(modelId, (pct) => reportProgress(modelId, pct))
+        await webGPUReady
+        let model = createModel(modelId, (pct) => reportProgress(modelId, pct))
 
-        await (model as { createSessionWithProgress: (cb: (p: number) => void) => Promise<void> })
-          .createSessionWithProgress((progress) => {
-            reportProgress(modelId, Math.round(progress * 100))
-          })
+        // createSessionWithProgress exists on TransformersJS models but not WebLLM.
+        // When available, call it to eagerly download + create the ONNX session with progress.
+        // When missing, the model will be initialized lazily on first inference.
+        const modelAny = model as Record<string, unknown>
+        if (typeof modelAny.createSessionWithProgress === 'function') {
+          try {
+            await (modelAny.createSessionWithProgress as (cb: (p: number) => void) => Promise<void>)(
+              (progress) => {
+                reportProgress(modelId, Math.round(progress * 100))
+              },
+            )
+          } catch (sessionErr: unknown) {
+            const errStr = sessionErr instanceof Error ? sessionErr.message : String(sessionErr)
+            if (errStr.includes('webgpu') || errStr.includes('GPU adapter') || errStr.includes('no available backend')) {
+              console.warn(`[${engineLabel}] WebGPU adapter failed, trying WASM...`, sessionErr)
+              onLoadMessage?.('WebGPU unavailable on GPU adapter. Retrying in WASM CPU mode...')
+              try {
+                const { createTransformersModel } = await import('@/llm/browser-ai-models')
+                model = createTransformersModel(modelId, (pct) => reportProgress(modelId, pct), 'wasm') as unknown as TModel
+                const fallbackAny = model as Record<string, unknown>
+                if (typeof fallbackAny.createSessionWithProgress === 'function') {
+                  await (fallbackAny.createSessionWithProgress as (cb: (p: number) => void) => Promise<void>)(
+                    (progress) => {
+                      reportProgress(modelId, Math.round(progress * 100))
+                    },
+                  )
+                }
+              } catch (wasmErr: unknown) {
+                const wasmStr = wasmErr instanceof Error ? wasmErr.message : String(wasmErr)
+                if (wasmStr.includes('GatherBlockQuantized') || wasmStr.includes('Could not find an implementation')) {
+                  throw new Error(`WebGPU is required for this model, but WebGPU is disabled or unavailable in your browser. Please enable "Use graphics acceleration when available" in Chrome Settings (chrome://settings/system) and restart your browser.`, { cause: wasmErr })
+                }
+                throw wasmErr
+              }
+            } else {
+              throw sessionErr
+            }
+          }
+        }
 
         onModelCreated?.(model, modelId)
 
@@ -100,12 +137,13 @@ export function useBrowserAiEngine<TModel>({
         console.log(`[${engineLabel}] Model ${modelId} loaded successfully`)
         return true
       } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error)
         console.error(`[${engineLabel}] Load error:`, error)
         modelRef.current = null
         currentModelRef.current = null
         setCurrentModel(null)
         updateStatus('error')
-        onError?.(error instanceof Error ? error : new Error(String(error)))
+        onError?.(new Error(`[${engineLabel}] ${errorMsg}`, { cause: error }))
         return false
       } finally {
         loadingRef.current = false

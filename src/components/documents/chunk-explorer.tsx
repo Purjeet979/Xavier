@@ -4,6 +4,7 @@ import { getDb, isDbInitialized } from '@/db/client'
 import { Button } from '@/components/ui/button'
 import { X, Layers, FileText, ChevronDown, ChevronUp, Hash } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { isTableChunk } from '@/rag/grounding/tables'
 
 interface ChunkExplorerProps {
   documentId: string
@@ -141,9 +142,15 @@ export function ChunkExplorer({ documentId, documentName, initialChunkId, onClos
                           )}
                         </div>
                       )}
-                      <p className="text-xs text-foreground/90 leading-relaxed whitespace-pre-wrap pt-1">
-                        {chunk.text}
-                      </p>
+                      {isTableChunk(chunk.text) ? (
+                        <pre className="text-[10px] bg-muted/50 p-2 rounded overflow-x-auto text-muted-foreground whitespace-pre pt-1 mt-2">
+                          {chunk.text}
+                        </pre>
+                      ) : (
+                        <p className="text-xs text-foreground/90 leading-relaxed whitespace-pre-wrap pt-1 mt-1">
+                          {chunk.text}
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>

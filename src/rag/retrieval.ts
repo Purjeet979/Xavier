@@ -186,9 +186,10 @@ export async function retrieveChunks(
   const vectorStart = performance.now()
   const vectorRes = await db.query<any>(vectorQueryParts.join('\n'), vectorValues)
   const vectorRows = vectorRes.rows
+
   const vectorMs = performance.now() - vectorStart
 
-  const semanticHits = vectorRows.map((row, i) => rowToDebugHit(row, i + 1))
+  const semanticHits = vectorRows.map((row: any, i: number) => rowToDebugHit(row, i + 1))
 
   const baseDebug = {
     query,

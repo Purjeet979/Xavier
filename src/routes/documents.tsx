@@ -40,6 +40,13 @@ function formatBytes(bytes: number, decimals = 2) {
 }
 
 function DocumentsComponent() {
+  const getDocMeta = (doc: any) => {
+    try {
+      return JSON.parse(doc?.metadata_json || '{}')
+    } catch {
+      return {}
+    }
+  }
   const queryClient = useQueryClient()
   const [dbReady, setDbReady] = useState(isDbInitialized())
   const [uploadingStatus, setUploadingStatus] = useState<string | null>(null)
@@ -110,6 +117,7 @@ function DocumentsComponent() {
 
         queryClient.invalidateQueries({ queryKey: ['documents'] })
 
+        // Run indexing
         try {
           await indexDocument({
             docId,
@@ -122,9 +130,14 @@ function DocumentsComponent() {
             chunkOverlap: activeProject.chunkOverlap ?? 100,
             onStatus: setUploadingStatus,
           })
+          
+          queryClient.invalidateQueries({ queryKey: ['documents'] })
+          queryClient.invalidateQueries({ queryKey: ['project-doc-counts'] })
+          queryClient.invalidateQueries({ queryKey: ['project-docs'] })
         } catch (err: any) {
           const message = err?.message || String(err)
           await markDocumentFailed(docId, message)
+          queryClient.invalidateQueries({ queryKey: ['documents'] })
           throw err
         }
       }
@@ -155,6 +168,7 @@ function DocumentsComponent() {
       setUploadingStatus(`Retrying ${stored.fileName}...`)
       const fileBytes = new Uint8Array(stored.bytes)
 
+      // Run indexing
       try {
         await indexDocument({
           docId,
@@ -167,8 +181,14 @@ function DocumentsComponent() {
           chunkOverlap: activeProject.chunkOverlap ?? 100,
           onStatus: setUploadingStatus,
         })
+        
+        queryClient.invalidateQueries({ queryKey: ['documents'] })
+        queryClient.invalidateQueries({ queryKey: ['project-doc-counts'] })
+        queryClient.invalidateQueries({ queryKey: ['project-docs'] })
+        queryClient.invalidateQueries({ queryKey: ['document-chunks'] })
       } catch (err: any) {
         await markDocumentFailed(docId, err?.message || String(err))
+        queryClient.invalidateQueries({ queryKey: ['documents'] })
         throw err
       }
     },
@@ -357,11 +377,17 @@ function DocumentsComponent() {
                       <tbody className='divide-y divide-border/40'>
                         {documents.map((doc: any) => (
                           <tr key={doc.id} className='hover:bg-accent/10 transition-colors align-top'>
-                            <td className='p-3 font-medium max-w-[220px]'>
+                            <td className='p-3 font-medium max-w-[240px]'>
                               <div className='truncate'>{doc.name}</div>
                               {doc.status === 'failed' && doc.error_message && (
                                 <p className='text-[11px] text-destructive/90 mt-1 leading-snug line-clamp-3 font-normal'>
                                   {doc.error_message}
+                                </p>
+                              )}
+                              {doc.status === 'completed' && getDocMeta(doc).warning && (
+                                <p className='text-[11px] text-amber-600 dark:text-amber-400 mt-1 leading-snug font-normal flex items-start gap-1'>
+                                  <AlertCircle className='h-3 w-3 shrink-0 mt-0.5' />
+                                  <span>{getDocMeta(doc).warning}</span>
                                 </p>
                               )}
                             </td>
@@ -472,8 +498,10 @@ function DocumentsComponent() {
                             </Button>
                           </div>
                         </div>
-                        {doc.status === 'failed' && doc.error_message && (
-                          <p className='text-[10px] text-destructive/90 leading-snug'>{doc.error_message}</p>
+                        {(doc.status === 'failed' || doc.status === 'completed') && doc.error_message && (
+                          <p className={`text-[10px] leading-snug ${doc.status === 'failed' ? 'text-destructive/90' : 'text-amber-600/90 dark:text-amber-400/90'}`}>
+                            {doc.error_message}
+                          </p>
                         )}
                         <div className='flex items-center gap-2 text-[10px] text-muted-foreground flex-wrap'>
                           <span className='font-mono'>{formatBytes(doc.size_bytes)}</span>

@@ -1,6 +1,7 @@
 import type { RetrievalResult } from '../retrieval'
 
 import { MAX_CHUNK_CHARS_HARD } from './config'
+import { isTableChunk, truncateTableAtRow } from './tables'
 
 export function buildContext(citations: RetrievalResult[]): { contextText: string; truncatedCount: number; contextChars: number } {
   let truncatedCount = 0
@@ -11,31 +12,36 @@ export function buildContext(citations: RetrievalResult[]): { contextText: strin
       return `[C${idx + 1}]:\n${c.text}`
     }
     
-    let text = c.text.substring(0, MAX_CHUNK_CHARS_HARD)
-    
-    // Check if inside a code block
-    const codeBlockCount = (c.text.substring(0, MAX_CHUNK_CHARS_HARD).match(/```/g) || []).length
-    const insideCode = codeBlockCount % 2 !== 0
-    
-    if (insideCode) {
-      // Find the last newline to not cut mid-line
-      const lastNewline = text.lastIndexOf('\n')
-      if (lastNewline > 0) {
-        text = text.substring(0, lastNewline)
-      }
-      text += '\n```\n […truncated]'
+    let text: string
+    if (isTableChunk(c.text)) {
+      text = truncateTableAtRow(c.text, MAX_CHUNK_CHARS_HARD)
     } else {
-      // Cut at last sentence boundary or newline
-      const lastSentence = Math.max(
-        text.lastIndexOf('. '), 
-        text.lastIndexOf('? '), 
-        text.lastIndexOf('! '),
-        text.lastIndexOf('\n')
-      )
-      if (lastSentence > 0) {
-        text = text.substring(0, lastSentence + 1)
+      let textToCut = c.text.substring(0, MAX_CHUNK_CHARS_HARD)
+      // Check if inside a code block
+      const codeBlockCount = (textToCut.match(/```/g) || []).length
+      const insideCode = codeBlockCount % 2 !== 0
+    
+      if (insideCode) {
+        // Find the last newline to not cut mid-line
+        const lastNewline = textToCut.lastIndexOf('\n')
+        if (lastNewline > 0) {
+          textToCut = textToCut.substring(0, lastNewline)
+        }
+        textToCut += '\n```\n […truncated]'
+      } else {
+        // Cut at last sentence boundary or newline
+        const lastSentence = Math.max(
+          textToCut.lastIndexOf('. '), 
+          textToCut.lastIndexOf('? '), 
+          textToCut.lastIndexOf('! '),
+          textToCut.lastIndexOf('\n')
+        )
+        if (lastSentence > 0) {
+          textToCut = textToCut.substring(0, lastSentence + 1)
+        }
+        textToCut += ' […truncated]'
       }
-      text += ' […truncated]'
+      text = textToCut
     }
     
     c.truncated = true

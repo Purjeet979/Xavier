@@ -3,11 +3,11 @@ import { loadPreferences } from '@/lib/preferences'
 import { getLLMVariant } from '@/llm/llm-models'
 import { streamLLMWithToolLoop, type RuntimeMessage, type LLMRuntimeHandles } from '@/llm/llm-runtime'
 import { evaluateGate } from './grounding/gate'
-import { TOP_K_CONTEXT } from './grounding/config'
+import { TOP_K_CONTEXT, REWRITE_FOLLOWUPS, REWRITE_SKIP_WORDS, REWRITE_TIMEOUT_MS } from './grounding/config'
 import { buildContext } from './grounding/context'
 import { AnswerSchemaString, tolerantParseJson, extractPartialAnswer } from './grounding/schema'
 import { verifyAnswer } from './grounding/verifier'
-import { getEffectiveTier } from './tiers'
+import { getEffectiveTierAsync } from './tiers'
 
 export interface RagDebugInfo {
   userQuery: string
@@ -20,11 +20,15 @@ export interface RagDebugInfo {
   contextTokens?: number
   truncatedChunks?: number
   outcome?: 'gate_refused' | 'answered' | 'verifier_all_dropped' | 'parse_fallback' | 'partial_fallback' | 'error' | 'tier0_evidence_only'
+  citedIds?: string[]
+  invalidCitedIds?: string[]
+  citationsInferred?: boolean
 }
 
 export interface RAGAnswerChunk {
-  type: 'text_delta' | 'thinking_delta' | 'citations' | 'retrieval_query' | 'debug' | 'done' | 'error' | 'verified'
+  type: 'text_delta' | 'thinking_delta' | 'citations' | 'retrieval_query' | 'debug' | 'done' | 'error' | 'verified' | 'context_chunks'
   text?: string
+  contextChunks?: RetrievalResult[]
   citations?: RetrievalResult[]
   removedCount?: number
   /** Standalone search query used for retrieval (may differ from the user turn). */
@@ -42,7 +46,6 @@ function normalizePriorTurns(history: RuntimeMessage[] | undefined): RuntimeMess
     .filter((m) => m.content.trim().length > 0)
     .slice(-MAX_HISTORY_TURNS)
 }
-
 function formatHistoryForRewrite(prior: RuntimeMessage[]): string {
   return prior
     .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
@@ -60,7 +63,9 @@ async function rewriteQueryForRetrieval(
   llmHandles: LLMRuntimeHandles,
   abortSignal?: AbortSignal
 ): Promise<string> {
+  if (!REWRITE_FOLLOWUPS) return query
   if (prior.length === 0) return query
+  if (query.split(/\s+/).length >= REWRITE_SKIP_WORDS) return query
 
   const rewritePrompt = `Given the conversation history and the latest user message, write a single standalone search query that captures what the user is asking for now.
 Resolve pronouns and references (e.g. "it", "that", "the second one") using the history.
@@ -76,6 +81,12 @@ ${query}
 Standalone search query:`
 
   try {
+    const timeoutController = new AbortController()
+    if (abortSignal) {
+      abortSignal.addEventListener('abort', () => timeoutController.abort())
+    }
+    const timeoutId = setTimeout(() => timeoutController.abort(), REWRITE_TIMEOUT_MS)
+
     let rewritten = ''
     const stream = streamLLMWithToolLoop(
       variant,
@@ -88,15 +99,19 @@ Standalone search query:`
         thinkingEnabled: false,
         toolsEnabled: false,
       },
-      abortSignal
+      timeoutController.signal
     )
 
     for await (const event of stream) {
-      if (abortSignal?.aborted) return query
+      if (timeoutController.signal.aborted) {
+        clearTimeout(timeoutId)
+        return query
+      }
       if (event.type === 'text_delta' && event.text) {
         rewritten += event.text
       }
     }
+    clearTimeout(timeoutId)
 
     const cleaned = rewritten
       .trim()
@@ -109,7 +124,6 @@ Standalone search query:`
     return query
   }
 }
-
 export async function* generateRAGAnswer(
   query: string,
   options: {
@@ -171,8 +185,9 @@ export async function* generateRAGAnswer(
     }
 
     const citations = allCitations.slice(0, TOP_K_CONTEXT)
+    yield { type: 'context_chunks', contextChunks: citations }
 
-    const effectiveTier = getEffectiveTier()
+    const effectiveTier = await getEffectiveTierAsync()
     if (effectiveTier === 0) {
       debug.outcome = 'tier0_evidence_only'
       yield { type: 'debug', debug }
@@ -199,6 +214,7 @@ ${AnswerSchemaString}
 
 For the "citations" array, use the exact labels (e.g. "C1", "C2") of the chunks that support your answer.
 If the context doesn't contain enough information to answer, state that you don't know in the answer field, and return an empty citations array.
+When reading markdown tables, carefully align the columns to extract the correct value.
 
 Context Excerpts:
 ${contextText}`
@@ -215,7 +231,7 @@ ${contextText}`
       systemPrompt,
       undefined,
       {
-        maxTokens: 1024,
+        maxTokens: 384,
         thinkingEnabled: false,
         toolsEnabled: false,
         temperature: 0,
@@ -239,31 +255,58 @@ ${contextText}`
     }
 
     let success = false
-    let finalCitations = citations
+    let isParseFallback = false
     let parsedAnswer = ''
+    let finalCitations: typeof citations = []
 
     try {
       const parsed = tolerantParseJson(rawOutput)
       parsedAnswer = parsed.answer
       
-      finalCitations = parsed.citations.map(label => {
+      const rawCitedIds = parsed.citations || []
+      debug.citedIds = rawCitedIds
+
+      const validCitations: typeof citations = []
+      const invalidIds: string[] = []
+      const seenIdx = new Set<number>()
+
+      rawCitedIds.forEach((label: string) => {
         const m = label.match(/C(\d+)/)
-        if (!m) return null
-        const idx = parseInt(m[1], 10) - 1
-        return citations[idx]
-      }).filter(Boolean) as typeof citations
+        if (m) {
+          const idx = parseInt(m[1], 10) - 1
+          if (citations[idx]) {
+            if (!seenIdx.has(idx)) {
+              validCitations.push(citations[idx])
+              seenIdx.add(idx)
+            }
+            return
+          }
+        }
+        invalidIds.push(label)
+      })
 
-      if (finalCitations.length === 0) {
-        finalCitations = citations // Verify against ALL context chunks
+      debug.invalidCitedIds = invalidIds
+
+      if (validCitations.length > 0) {
+        finalCitations = validCitations
+      } else {
+        finalCitations = citations
+        debug.citationsInferred = true
       }
-
+      
       success = true
     } catch {
       const partial = extractPartialAnswer(rawOutput)
       if (partial.trim()) {
         parsedAnswer = partial
-        finalCitations = citations // NO reliable citations, verify against ALL
+        finalCitations = citations
         success = true
+        isParseFallback = true
+      } else if (rawOutput.trim()) {
+        parsedAnswer = rawOutput.trim()
+        finalCitations = citations
+        success = true
+        isParseFallback = true
       }
     }
 
@@ -275,14 +318,14 @@ ${contextText}`
         yield { type: 'verified', text: 'Not found in your material', removedCount: 0 }
         yield { type: 'citations', citations: [] }
       } else {
-        debug.outcome = 'answered'
+        debug.outcome = isParseFallback ? 'parse_fallback' : 'answered'
         yield { type: 'verified', text: verifiedText, removedCount }
-        yield { type: 'citations', citations: finalCitations }
+        yield { type: 'citations', citations: isParseFallback || debug.citationsInferred ? [] : finalCitations }
       }
     } else {
       debug.outcome = parsedAnswer.trim() ? 'partial_fallback' : 'parse_fallback'
       yield { type: 'text_delta', text: '\n\n[Fallback: Could not parse structured answer. Here is the evidence]' }
-      yield { type: 'citations', citations }
+      yield { type: 'citations', citations: [] }
     }
 
     yield { type: 'debug', debug }

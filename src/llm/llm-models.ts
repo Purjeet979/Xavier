@@ -1,6 +1,35 @@
 const isIOS =
   typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent)
 
+type GpuNavigator = Navigator & { gpu?: { requestAdapter(): Promise<unknown> } }
+
+let webGPUStatus: boolean | undefined = undefined
+
+export const webGPUReady: Promise<boolean> = (async () => {
+  if (typeof navigator === 'undefined') {
+    webGPUStatus = false
+    return false
+  }
+  const nav = navigator as GpuNavigator
+  if (!nav.gpu || typeof nav.gpu.requestAdapter !== 'function') {
+    webGPUStatus = false
+    return false
+  }
+  try {
+    const adapter = await nav.gpu.requestAdapter()
+    const available = adapter != null
+    webGPUStatus = available
+    return available
+  } catch {
+    webGPUStatus = false
+    return false
+  }
+})()
+
+export function getWebGPUStatus(): boolean | undefined {
+  return webGPUStatus
+}
+
 export const DEFAULT_LLM_ID = isIOS ? "qwen2.5-0.5b" : "qwen35-0.8b"
 export const DEFAULT_VARIANT_ID = isIOS ? "qwen-0.5b" : "qwen35-0.8b"
 
@@ -405,4 +434,11 @@ export function selectBestVariant(options: {
 
 export function selectBestVariantForModel(model: LLMModel): LLMVariant {
   return selectBestVariant({ model })
+}
+
+/**
+ * Returns true when the engine type strictly requires WebGPU.
+ */
+export function engineRequiresWebGPU(engine: LLMEngineType): boolean {
+  return engine !== 'transformers-js'
 }
