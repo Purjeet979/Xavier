@@ -138,7 +138,7 @@ export async function indexDocument(params: IndexDocumentParams): Promise<void> 
               endOffset: chunk.endOffset,
               pageNumber: chunk.pageNumber,
               headingPath: chunk.headingPath,
-              type: chunk.type,
+              type: chunk.type || 'text',
             }),
           ]
         )

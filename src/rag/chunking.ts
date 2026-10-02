@@ -6,13 +6,44 @@ export interface Chunk {
   endOffset: number
   pageNumber: number | null
   headingPath: string | null
+  type?: 'text' | 'code' | 'table'
 }
 
-interface PageOffset {
+export interface PageOffset {
   pageNumber: number
   startOffset: number
   endOffset: number
 }
+
+export function buildPageOffsets(
+  _text: string,
+  pages?: { pageNumber: number; text: string }[]
+): PageOffset[] {
+  const pageOffsets: PageOffset[] = []
+  if (pages && pages.length > 0) {
+    let currentOffset = 0
+    for (const page of pages) {
+      const pageLen = page.text.length
+      pageOffsets.push({
+        pageNumber: page.pageNumber,
+        startOffset: currentOffset,
+        endOffset: currentOffset + pageLen,
+      })
+      currentOffset += pageLen + 1
+    }
+  }
+  return pageOffsets
+}
+
+export function getPageNumberForOffset(offset: number, pageOffsets: PageOffset[]): number | null {
+  if (pageOffsets.length === 0) return null
+  const match = pageOffsets.find(
+    (p) => offset >= p.startOffset && offset <= p.endOffset
+  )
+  return match ? match.pageNumber : pageOffsets[0].pageNumber
+}
+
+
 
 export function chunkText(
   text: string,
@@ -31,20 +62,10 @@ export function chunkText(
   const overlapChars = chunkOverlap * 4
 
   // Calculate page offsets if pages are provided
-  const pageOffsets: PageOffset[] = []
+  const pageOffsets = buildPageOffsets(text, options.pages)
   if (options.pages && options.pages.length > 0) {
-    let currentOffset = 0
-    for (const page of options.pages) {
-      const pageLen = page.text.length
-      pageOffsets.push({
-        pageNumber: page.pageNumber,
-        startOffset: currentOffset,
-        endOffset: currentOffset + pageLen,
-      })
-      // Account for the newline separator we'll use to join pages
-      currentOffset += pageLen + 1
-    }
-    console.assert(currentOffset - 1 === text.length, 'Last page endOffset must equal text.length')
+    const lastOffset = pageOffsets[pageOffsets.length - 1].endOffset + 1
+    console.assert(lastOffset - 1 === text.length, 'Last page endOffset must equal text.length')
   }
 
   const chunks: Chunk[] = []
@@ -54,12 +75,8 @@ export function chunkText(
   let currentHeadingPath: string[] = []
 
   // Function to get page number for a given character offset
-  const getPageNumberForOffset = (offset: number): number | null => {
-    if (pageOffsets.length === 0) return null
-    const match = pageOffsets.find(
-      (p) => offset >= p.startOffset && offset <= p.endOffset
-    )
-    return match ? match.pageNumber : pageOffsets[0].pageNumber
+  const getPageNumber = (offset: number): number | null => {
+    return getPageNumberForOffset(offset, pageOffsets)
   }
 
   // Pre-split text into paragraphs and track headings
@@ -118,7 +135,7 @@ export function chunkText(
 
     // Determine heading path and page number
     const primaryHeadingPath = blockGroup[0].headingPath
-    const pageNum = getPageNumberForOffset(start)
+    const pageNum = getPageNumber(start)
 
     chunks.push({
       text: chunkTextContent,

@@ -2,20 +2,43 @@ import { getDb } from '@/db/client'
 import { getEmbeddingProvider } from '@/rag/embedding-runtime'
 import { getVerifyThreshold, VERIFY_MIN_WORDS } from './config'
 import type { RetrievalResult } from '@/rag/retrieval'
+import { findTableBlocks } from './tables'
 
 function splitSentences(text: string): { text: string; isCode: boolean }[] {
   const parts: { text: string; isCode: boolean }[] = [];
-  const codeBlockRegex = /```[\s\S]*?```/g;
-  let match;
-  let lastIndex = 0;
   
+  const codeBlockRegex = /```[\s\S]*?```/g;
+  const specialBlocks: { startIndex: number, endIndex: number, text: string }[] = [];
+  
+  let match;
   while ((match = codeBlockRegex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      const textBefore = text.slice(lastIndex, match.index);
+    specialBlocks.push({ startIndex: match.index, endIndex: match.index + match[0].length, text: match[0] });
+  }
+  
+  const tableBlocks = findTableBlocks(text);
+  for (const tb of tableBlocks) {
+    specialBlocks.push({ startIndex: tb.startIndex, endIndex: tb.endIndex, text: tb.text });
+  }
+  
+  specialBlocks.sort((a, b) => a.startIndex - b.startIndex);
+  
+  const filteredBlocks = [];
+  let lastEnd = -1;
+  for (const b of specialBlocks) {
+    if (b.startIndex >= lastEnd) {
+      filteredBlocks.push(b);
+      lastEnd = b.endIndex;
+    }
+  }
+  
+  let lastIndex = 0;
+  for (const block of filteredBlocks) {
+    if (block.startIndex > lastIndex) {
+      const textBefore = text.slice(lastIndex, block.startIndex);
       parts.push(...segmentText(textBefore).map(s => ({ text: s, isCode: false })));
     }
-    parts.push({ text: match[0], isCode: true });
-    lastIndex = match.index + match[0].length;
+    parts.push({ text: block.text, isCode: true });
+    lastIndex = block.endIndex;
   }
   
   if (lastIndex < text.length) {

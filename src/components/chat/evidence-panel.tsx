@@ -1,6 +1,7 @@
 import { Layers, FileText } from 'lucide-react'
 
 import type { RetrievalResult } from '@/rag/retrieval'
+import { isTableChunk } from '@/rag/grounding/tables'
 
 interface EvidencePanelProps {
   chunks: RetrievalResult[]
@@ -29,7 +30,13 @@ export function EvidencePanel({ chunks, onChunkClick }: EvidencePanelProps) {
               {c.truncated && <span className="text-[10px] text-orange-500 font-bold ml-1 px-1 rounded bg-orange-500/10">truncated in prompt</span>}
               <span className="ml-auto font-mono text-[10px] text-muted-foreground/60">[C{i + 1}]</span>
             </div>
-            <div className="line-clamp-2 text-muted-foreground leading-relaxed">{c.text}</div>
+            {isTableChunk(c.text) ? (
+              <pre className="text-[10px] bg-muted/50 p-2 rounded overflow-x-auto text-muted-foreground whitespace-pre">
+                {c.text}
+              </pre>
+            ) : (
+              <div className="line-clamp-2 text-muted-foreground leading-relaxed">{c.text}</div>
+            )}
           </div>
         ))}
       </div>
