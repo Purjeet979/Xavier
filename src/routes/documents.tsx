@@ -110,27 +110,29 @@ function DocumentsComponent() {
 
         queryClient.invalidateQueries({ queryKey: ['documents'] })
 
-        // Run indexing in background to unblock UI
-        indexDocument({
-          docId,
-          fileBytes,
-          fileName: file.name,
-          mimeType: file.type,
-          projectId: activeProject.id,
-          embeddingModelId: activeProject.embeddingModelId,
-          chunkSize: activeProject.chunkSize ?? 500,
-          chunkOverlap: activeProject.chunkOverlap ?? 100,
-          onStatus: () => {}, // Don't bind to local state as it will unmount/clear
-        }).then(() => {
+        // Run indexing
+        try {
+          await indexDocument({
+            docId,
+            fileBytes,
+            fileName: file.name,
+            mimeType: file.type,
+            projectId: activeProject.id,
+            embeddingModelId: activeProject.embeddingModelId,
+            chunkSize: activeProject.chunkSize ?? 500,
+            chunkOverlap: activeProject.chunkOverlap ?? 100,
+            onStatus: setUploadingStatus,
+          })
+          
           queryClient.invalidateQueries({ queryKey: ['documents'] })
           queryClient.invalidateQueries({ queryKey: ['project-doc-counts'] })
           queryClient.invalidateQueries({ queryKey: ['project-docs'] })
-        }).catch((err: any) => {
+        } catch (err: any) {
           const message = err?.message || String(err)
-          markDocumentFailed(docId, message).then(() => {
-            queryClient.invalidateQueries({ queryKey: ['documents'] })
-          })
-        })
+          await markDocumentFailed(docId, message)
+          queryClient.invalidateQueries({ queryKey: ['documents'] })
+          throw err
+        }
       }
     },
     onSuccess: () => {
@@ -159,27 +161,29 @@ function DocumentsComponent() {
       setUploadingStatus(`Retrying ${stored.fileName}...`)
       const fileBytes = new Uint8Array(stored.bytes)
 
-      // Run in background
-      indexDocument({
-        docId,
-        fileBytes,
-        fileName: stored.fileName,
-        mimeType: stored.mimeType,
-        projectId: activeProject.id,
-        embeddingModelId: activeProject.embeddingModelId,
-        chunkSize: activeProject.chunkSize ?? 500,
-        chunkOverlap: activeProject.chunkOverlap ?? 100,
-        onStatus: () => {},
-      }).then(() => {
+      // Run indexing
+      try {
+        await indexDocument({
+          docId,
+          fileBytes,
+          fileName: stored.fileName,
+          mimeType: stored.mimeType,
+          projectId: activeProject.id,
+          embeddingModelId: activeProject.embeddingModelId,
+          chunkSize: activeProject.chunkSize ?? 500,
+          chunkOverlap: activeProject.chunkOverlap ?? 100,
+          onStatus: setUploadingStatus,
+        })
+        
         queryClient.invalidateQueries({ queryKey: ['documents'] })
         queryClient.invalidateQueries({ queryKey: ['project-doc-counts'] })
         queryClient.invalidateQueries({ queryKey: ['project-docs'] })
         queryClient.invalidateQueries({ queryKey: ['document-chunks'] })
-      }).catch((err: any) => {
-        markDocumentFailed(docId, err?.message || String(err)).then(() => {
-          queryClient.invalidateQueries({ queryKey: ['documents'] })
-        })
-      })
+      } catch (err: any) {
+        await markDocumentFailed(docId, err?.message || String(err))
+        queryClient.invalidateQueries({ queryKey: ['documents'] })
+        throw err
+      }
     },
     onSuccess: () => {
       setUploadingStatus(null)

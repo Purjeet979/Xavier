@@ -20,6 +20,9 @@ export interface RagDebugInfo {
   contextTokens?: number
   truncatedChunks?: number
   outcome?: 'gate_refused' | 'answered' | 'verifier_all_dropped' | 'parse_fallback' | 'partial_fallback' | 'error' | 'tier0_evidence_only'
+  citedIds?: string[]
+  invalidCitedIds?: string[]
+  citationsInferred?: boolean
 }
 
 export interface RAGAnswerChunk {
@@ -171,23 +174,52 @@ ${contextText}`
     let success = false
     let isParseFallback = false
     let parsedAnswer = ''
+    let finalCitations: typeof citations = []
 
     try {
       const parsed = tolerantParseJson(rawOutput)
       parsedAnswer = parsed.answer
+      
+      const rawCitedIds = parsed.citations || []
+      debug.citedIds = rawCitedIds
+
+      const validCitations: typeof citations = []
+      const invalidIds: string[] = []
+
+      rawCitedIds.forEach((label: string) => {
+        const m = label.match(/C(\d+)/)
+        if (m) {
+          const idx = parseInt(m[1], 10) - 1
+          if (citations[idx]) {
+            validCitations.push(citations[idx])
+            return
+          }
+        }
+        invalidIds.push(label)
+      })
+
+      debug.invalidCitedIds = invalidIds
+
+      if (validCitations.length > 0) {
+        finalCitations = validCitations
+      } else {
+        finalCitations = citations
+        debug.citationsInferred = true
+      }
       
       success = true
     } catch {
       const partial = extractPartialAnswer(rawOutput)
       if (partial.trim()) {
         parsedAnswer = partial
+        finalCitations = citations
         success = true
         isParseFallback = true
       }
     }
 
     if (success) {
-      const { verifiedText, removedCount } = await verifyAnswer(parsedAnswer, citations, options.embeddingModelId)
+      const { verifiedText, removedCount } = await verifyAnswer(parsedAnswer, finalCitations, options.embeddingModelId)
       
       if (verifiedText.trim() === '') {
         debug.outcome = 'verifier_all_dropped'
@@ -196,12 +228,12 @@ ${contextText}`
       } else {
         debug.outcome = isParseFallback ? 'parse_fallback' : 'answered'
         yield { type: 'verified', text: verifiedText, removedCount }
-        yield { type: 'citations', citations }
+        yield { type: 'citations', citations: isParseFallback || debug.citationsInferred ? [] : finalCitations }
       }
     } else {
       debug.outcome = parsedAnswer.trim() ? 'partial_fallback' : 'parse_fallback'
       yield { type: 'text_delta', text: '\n\n[Fallback: Could not parse structured answer. Here is the evidence]' }
-      yield { type: 'citations', citations }
+      yield { type: 'citations', citations: [] }
     }
 
     yield { type: 'debug', debug }
