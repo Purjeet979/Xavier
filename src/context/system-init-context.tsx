@@ -61,10 +61,10 @@ export function SystemInitProvider({ children }: { children: React.ReactNode }) 
   const [dbReady, setDbReady] = useState(isDbInitialized())
 
   // 3. Initialize LLM Engine Hooks (one global instantiation)
-  const gemma4 = useGemma4()
-  const webllm = useWebLLM()
-  const lfm2 = useLfm2()
-  const qwen35 = useQwen35()
+  const gemma4 = useGemma4({ onError: (err) => setLoadingError(err.message) })
+  const webllm = useWebLLM({ onError: (err) => setLoadingError(err.message) })
+  const lfm2 = useLfm2({ onError: (err) => setLoadingError(err.message) })
+  const qwen35 = useQwen35({ onError: (err) => setLoadingError(err.message) })
 
   // 4. Embedding model state
   const [embeddingLoading, setEmbeddingLoading] = useState(false)
@@ -208,12 +208,13 @@ export function SystemInitProvider({ children }: { children: React.ReactNode }) 
 
   // Load active LLM model
   const loadLlmModel = useCallback(async () => {
-    setLoadingError(null)
     if (!activeLlmHook) {
       throw new Error(`No active LLM engine found for variant ID: ${preferences.llmVariantId}`)
     }
     const success = await activeLlmHook.loadModel(variant.engineModelId)
     if (!success) {
+      // onError callback already set loadingError with the specific message.
+      // Only throw if no specific error was captured.
       throw new Error(`Failed to load LLM model: ${variant.engineModelId}`)
     }
   }, [activeLlmHook, preferences.llmVariantId, variant.engineModelId])

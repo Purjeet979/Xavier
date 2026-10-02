@@ -6,9 +6,10 @@ export interface HardwareCapabilities {
   isMobile: boolean
 }
 
+import { getWebGPUStatus, webGPUReady } from '@/llm/llm-models'
+
 export function detectHardware(): HardwareCapabilities {
-  // navigator.gpu is available in modern browsers supporting WebGPU
-  const hasWebGPU = typeof navigator !== 'undefined' && 'gpu' in navigator
+  const hasWebGPU = getWebGPUStatus() ?? false
   
   // navigator.deviceMemory is available in Chromium-based browsers
   // Defaults to 4 if not available (conservative estimate)
@@ -45,4 +46,9 @@ export function getEffectiveTier(override?: HardwareTier): HardwareTier {
   }
   const caps = detectHardware()
   return determineTier(caps)
+}
+
+export async function getEffectiveTierAsync(override?: HardwareTier): Promise<HardwareTier> {
+  await webGPUReady
+  return getEffectiveTier(override)
 }

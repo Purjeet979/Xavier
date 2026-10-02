@@ -6,7 +6,6 @@ export const VERIFY_MIN_WORDS = 4
 export const REWRITE_FOLLOWUPS = true
 export const REWRITE_SKIP_WORDS = 12
 export const REWRITE_TIMEOUT_MS = 8000
-
 // TODO: calibrate in Phase 4
 export const COSINE_THRESHOLDS: Record<string, number> = {
   default: 0.5,

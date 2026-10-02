@@ -7,7 +7,7 @@ import { TOP_K_CONTEXT, REWRITE_FOLLOWUPS, REWRITE_SKIP_WORDS, REWRITE_TIMEOUT_M
 import { buildContext } from './grounding/context'
 import { AnswerSchemaString, tolerantParseJson, extractPartialAnswer } from './grounding/schema'
 import { verifyAnswer } from './grounding/verifier'
-import { getEffectiveTier } from './tiers'
+import { getEffectiveTierAsync } from './tiers'
 
 export interface RagDebugInfo {
   userQuery: string
@@ -187,7 +187,7 @@ export async function* generateRAGAnswer(
     const citations = allCitations.slice(0, TOP_K_CONTEXT)
     yield { type: 'context_chunks', contextChunks: citations }
 
-    const effectiveTier = getEffectiveTier()
+    const effectiveTier = await getEffectiveTierAsync()
     if (effectiveTier === 0) {
       debug.outcome = 'tier0_evidence_only'
       yield { type: 'debug', debug }
@@ -231,7 +231,7 @@ ${contextText}`
       systemPrompt,
       undefined,
       {
-        maxTokens: 1024,
+        maxTokens: 384,
         thinkingEnabled: false,
         toolsEnabled: false,
         temperature: 0,
@@ -299,6 +299,11 @@ ${contextText}`
       const partial = extractPartialAnswer(rawOutput)
       if (partial.trim()) {
         parsedAnswer = partial
+        finalCitations = citations
+        success = true
+        isParseFallback = true
+      } else if (rawOutput.trim()) {
+        parsedAnswer = rawOutput.trim()
         finalCitations = citations
         success = true
         isParseFallback = true

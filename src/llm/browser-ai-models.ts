@@ -5,8 +5,7 @@ import type { PretrainedModelOptions } from '@huggingface/transformers'
 function isVisionModelId(modelId: string): boolean {
   const id = modelId.toLowerCase()
   return (
-    id.includes('qwen3.5') ||
-    id.includes('qwen3_5') ||
+    id.includes('vl') ||
     id.includes('gemma-4') ||
     id.includes('gemma_4')
   )
@@ -18,7 +17,7 @@ function resolveTransformersDtype(modelId: string): PretrainedModelOptions['dtyp
   if (id.includes('gemma-4') || id.includes('gemma_4')) {
     return 'q4f16'
   }
-  if (id.includes('qwen3.5') || id.includes('qwen3_5')) {
+  if (id.includes('vl')) {
     return {
       embed_tokens: 'q4',
       vision_encoder: 'fp16',
@@ -28,12 +27,16 @@ function resolveTransformersDtype(modelId: string): PretrainedModelOptions['dtyp
   return 'q4'
 }
 
+import { getWebGPUStatus } from './llm-models'
+
 export function createTransformersModel(
   modelId: string,
   onProgress?: (pct: number) => void,
+  deviceOverride?: 'webgpu' | 'wasm',
 ): TransformersJSLanguageModel {
+  const device = deviceOverride ?? (getWebGPUStatus() ? 'webgpu' : 'wasm')
   return transformersJS(modelId, {
-    device: 'webgpu',
+    device,
     dtype: resolveTransformersDtype(modelId),
     isVisionModel: isVisionModelId(modelId),
     initProgressCallback: onProgress

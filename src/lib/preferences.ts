@@ -7,8 +7,8 @@ export interface Preferences {
 
 const DEFAULT_PREFERENCES: Preferences = {
   activeProjectId: null,
-  llmModelId: 'qwen-3.5-0.8b',
-  llmVariantId: 'transformers-js',
+  llmModelId: 'qwen35-0.8b',
+  llmVariantId: 'qwen35-0.8b',
 }
 
 const STORAGE_KEY = 'browser-rag-preferences'
