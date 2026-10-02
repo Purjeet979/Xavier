@@ -77,11 +77,11 @@ export function StorageCacheManager() {
   const getTypeBadge = (type: CacheDetails['type']) => {
     switch (type) {
       case 'transformers':
-        return <span className="inline-flex items-center rounded-md bg-purple-500/10 px-2 py-0.5 text-xs font-medium text-purple-600 dark:text-purple-400">Embedding Model</span>
+        return <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">Embedding Model</span>
       case 'webllm':
-        return <span className="inline-flex items-center rounded-md bg-indigo-500/10 px-2 py-0.5 text-xs font-medium text-indigo-600 dark:text-indigo-400">WebLLM Weights</span>
+        return <span className="inline-flex items-center rounded-md bg-accent text-accent-foreground border border-primary/20 px-2 py-0.5 text-xs font-medium">WebLLM Weights</span>
       case 'app-shell':
-        return <span className="inline-flex items-center rounded-md bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-600 dark:text-blue-400">App Offline Shell</span>
+        return <span className="inline-flex items-center rounded-md bg-secondary text-secondary-foreground border border-border px-2 py-0.5 text-xs font-medium">App Offline Shell</span>
       default:
         return <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">Cache</span>
     }

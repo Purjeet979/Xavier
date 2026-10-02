@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ProjectsRouteImport } from './routes/projects'
+import { Route as LandingRouteImport } from './routes/landing'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as EvalRouteImport } from './routes/eval'
 import { Route as DocumentsRouteImport } from './routes/documents'
@@ -24,6 +25,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const ProjectsRoute = ProjectsRouteImport.update({
   id: '/projects',
   path: '/projects',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LandingRoute = LandingRouteImport.update({
+  id: '/landing',
+  path: '/landing',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HistoryRoute = HistoryRouteImport.update({
@@ -52,6 +58,7 @@ export interface FileRoutesByFullPath {
   '/documents': typeof DocumentsRoute
   '/eval': typeof EvalRoute
   '/history': typeof HistoryRoute
+  '/landing': typeof LandingRoute
   '/projects': typeof ProjectsRoute
   '/settings': typeof SettingsRoute
 }
@@ -60,6 +67,7 @@ export interface FileRoutesByTo {
   '/documents': typeof DocumentsRoute
   '/eval': typeof EvalRoute
   '/history': typeof HistoryRoute
+  '/landing': typeof LandingRoute
   '/projects': typeof ProjectsRoute
   '/settings': typeof SettingsRoute
 }
@@ -69,21 +77,36 @@ export interface FileRoutesById {
   '/documents': typeof DocumentsRoute
   '/eval': typeof EvalRoute
   '/history': typeof HistoryRoute
+  '/landing': typeof LandingRoute
   '/projects': typeof ProjectsRoute
   '/settings': typeof SettingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/documents' | '/eval' | '/history' | '/projects' | '/settings'
+    | '/'
+    | '/documents'
+    | '/eval'
+    | '/history'
+    | '/landing'
+    | '/projects'
+    | '/settings'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/documents' | '/eval' | '/history' | '/projects' | '/settings'
+  to:
+    | '/'
+    | '/documents'
+    | '/eval'
+    | '/history'
+    | '/landing'
+    | '/projects'
+    | '/settings'
   id:
     | '__root__'
     | '/'
     | '/documents'
     | '/eval'
     | '/history'
+    | '/landing'
     | '/projects'
     | '/settings'
   fileRoutesById: FileRoutesById
@@ -93,6 +116,7 @@ export interface RootRouteChildren {
   DocumentsRoute: typeof DocumentsRoute
   EvalRoute: typeof EvalRoute
   HistoryRoute: typeof HistoryRoute
+  LandingRoute: typeof LandingRoute
   ProjectsRoute: typeof ProjectsRoute
   SettingsRoute: typeof SettingsRoute
 }
@@ -111,6 +135,13 @@ declare module '@tanstack/react-router' {
       path: '/projects'
       fullPath: '/projects'
       preLoaderRoute: typeof ProjectsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/landing': {
+      id: '/landing'
+      path: '/landing'
+      fullPath: '/landing'
+      preLoaderRoute: typeof LandingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/history': {
@@ -149,6 +180,7 @@ const rootRouteChildren: RootRouteChildren = {
   DocumentsRoute: DocumentsRoute,
   EvalRoute: EvalRoute,
   HistoryRoute: HistoryRoute,
+  LandingRoute: LandingRoute,
   ProjectsRoute: ProjectsRoute,
   SettingsRoute: SettingsRoute,
 }

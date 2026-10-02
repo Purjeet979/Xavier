@@ -18,7 +18,7 @@ function HitList({ hits, emptyLabel, scoreLabel }: {
       {hits.map((hit) => (
         <div key={`${hit.chunkId}-${hit.rank}`} className="px-2.5 py-1.5 space-y-0.5">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="font-mono font-semibold text-copper/80">#{hit.rank}</span>
+            <span className="font-mono font-semibold text-primary">#{hit.rank}</span>
             <span className="font-medium text-foreground truncate max-w-[160px]">{hit.documentName}</span>
             <span className="text-muted-foreground/55 font-mono">chunk {hit.chunkIndex}</span>
             {hit.pageNumber != null && (

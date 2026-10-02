@@ -307,9 +307,9 @@ function SettingsComponent() {
                       return (
                         <span
                           key={req}
-                          className={`text-[8px] px-1.5 py-0.5 rounded-sm font-semibold uppercase border ${isGood
+                          className={`text-[9px] px-2 py-0.5 rounded-full font-semibold uppercase border ${isGood
                               ? 'border-emerald-500/25 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400'
-                              : 'border-copper/30 bg-copper/5 text-copper'
+                              : 'border-warning/30 bg-warning/5 text-warning'
                             }`}
                         >
                           {req}
@@ -502,15 +502,15 @@ function SettingsComponent() {
                 <p className='text-muted-foreground leading-relaxed text-[11px]'>
                   Load a previously exported `.tar.gz` database backup file to restore your workspace.
                 </p>
-                <div className='flex items-start gap-2 text-[10px] bg-copper/5 text-copper border border-copper/25 p-3 rounded-md leading-normal'>
-                  <AlertTriangle className='h-4 w-4 text-copper shrink-0 mt-0.5' />
+                <div className='flex items-start gap-2.5 text-xs bg-warning/5 text-warning border border-warning/25 p-3.5 rounded-xl leading-normal'>
+                  <AlertTriangle className='h-4 w-4 text-warning shrink-0 mt-0.5' />
                   <span>
                     <strong>Warning:</strong> Restoring will overwrite all current projects, documents, chunks, vectors, and query history. The application will reload automatically upon successful import.
                   </span>
                 </div>
 
                 {importError && (
-                  <div className='flex items-center gap-2 text-destructive bg-destructive/10 p-3 rounded-md text-xs border border-destructive/20'>
+                  <div className='flex items-center gap-2 text-destructive bg-destructive/10 p-3 rounded-xl text-xs border border-destructive/20'>
                     <XCircle className='h-4 w-4 shrink-0' />
                     <span>{importError}</span>
                   </div>
@@ -540,16 +540,16 @@ function SettingsComponent() {
                     </Button>
                   </div>
                 ) : (
-                  <div className='bg-secondary/30 p-3 rounded-md border border-border/50 space-y-3'>
-                    <div className='flex justify-between items-center text-[11px]'>
+                  <div className='bg-secondary/40 p-3.5 rounded-xl border border-border space-y-3'>
+                    <div className='flex justify-between items-center text-xs'>
                       <span className='font-semibold truncate max-w-[200px] text-foreground'>
                         Selected: {selectedFile?.name}
                       </span>
-                      <span className='text-[10px] text-muted-foreground'>
+                      <span className='text-xs text-muted-foreground'>
                         {selectedFile ? (selectedFile.size / (1024 * 1024)).toFixed(2) : 0} MB
                       </span>
                     </div>
-                    <p className='text-[10px] text-copper leading-normal'>
+                    <p className='text-xs text-warning leading-normal'>
                       Confirm that you want to overwrite the current database. This is a destructive operation.
                     </p>
                     <div className='flex gap-2'>

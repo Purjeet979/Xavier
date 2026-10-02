@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, memo } from 'react'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, useNavigate, Link } from '@tanstack/react-router'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -32,6 +32,8 @@ import { ChunkExplorer } from '@/components/documents/chunk-explorer'
 import { useSystemInit } from '@/context/system-init-context'
 import type { LLMRuntimeHandles } from '@/llm/llm-runtime'
 import { marked } from 'marked'
+import bgSvg from '@/assets/bg.svg'
+import bgLightSvg from '@/assets/bg-light.svg'
 
 export const Route = createFileRoute('/')({
   component: ChatComponent,
@@ -108,41 +110,41 @@ function SourcePill({ citation, index, onClick }: { citation: any; index: number
       onMouseLeave={handleMouseLeave}
       onClick={onClick}
     >
-      <span className="inline-flex items-center gap-1 text-[10px] bg-card hover:bg-primary/8 border border-border/60 hover:border-primary/40 text-muted-foreground hover:text-primary px-2 py-0.5 rounded-sm cursor-default transition-all duration-200 select-none">
-        <FileText className="h-2.5 w-2.5 shrink-0" />
-        <span className="max-w-[100px] truncate">{citation.documentName}</span>
+      <span className="inline-flex items-center gap-1.5 text-xs bg-secondary/80 hover:bg-accent border border-border hover:border-primary/40 text-foreground/80 hover:text-primary px-2.5 py-1 rounded-full cursor-pointer transition-colors duration-150 select-none">
+        <FileText className="h-3 w-3 shrink-0 text-primary" />
+        <span className="max-w-[120px] truncate font-medium">{citation.documentName}</span>
         {citation.metadata?.pageNumber && (
-          <span className="opacity-60">p.{citation.metadata.pageNumber}</span>
+          <span className="text-[11px] text-muted-foreground font-mono">p.{citation.metadata.pageNumber}</span>
         )}
-        <span className="font-mono font-semibold text-copper/80">[{index + 1}]</span>
+        <span className="font-mono font-semibold text-primary text-[11px] bg-card px-1.5 py-0.2 rounded-full border border-border/60">[C{index + 1}]</span>
       </span>
 
       {hovered && (
         <div
           className={cn(
-            'absolute bottom-full mb-2 z-50 w-72 rounded-lg border border-border/70 bg-popover shadow-lg overflow-hidden',
+            'absolute bottom-full mb-2 z-50 w-80 rounded-2xl border border-border bg-popover shadow-lg overflow-hidden',
             tooltipLeft ? 'left-0' : 'right-0'
           )}
         >
-          <div className="px-3 py-2 border-b border-border/50 bg-muted/40 flex items-start justify-between gap-2">
-            <span className="text-[10px] font-semibold text-foreground leading-snug break-all">
+          <div className="px-3.5 py-2.5 border-b border-border bg-secondary/40 flex items-start justify-between gap-2">
+            <span className="text-xs font-semibold text-foreground leading-snug break-all">
               {citation.documentName}
             </span>
-            <div className="flex items-center gap-1 shrink-0 mt-0.5">
+            <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
               {citation.metadata?.pageNumber && (
-                <span className="text-[9px] bg-secondary px-1.5 py-0.5 rounded-sm text-muted-foreground whitespace-nowrap">
+                <span className="text-[10px] bg-secondary px-1.5 py-0.5 rounded-md text-muted-foreground whitespace-nowrap">
                   p.{citation.metadata.pageNumber}
                 </span>
               )}
-              <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-sm font-mono whitespace-nowrap">
+              <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-md font-mono whitespace-nowrap">
                 {matchSource}
               </span>
-              <span className="text-[9px] text-muted-foreground/70 font-mono">
+              <span className="text-[10px] text-muted-foreground font-mono">
                 {citation.score?.toFixed(3)}
               </span>
             </div>
           </div>
-          <p className="p-3 text-[10px] text-muted-foreground leading-relaxed max-h-36 overflow-y-auto">
+          <p className="p-3.5 text-xs text-muted-foreground leading-relaxed max-h-40 overflow-y-auto">
             {citation.text}
           </p>
         </div>
@@ -166,15 +168,15 @@ const ChatBubble = memo(function ChatBubble({ message, onCopy, onCitationClick }
     return (
       <div className="flex items-end justify-end gap-2.5 group page-enter">
         <div className="max-w-[85%] md:max-w-[70%] flex flex-col items-end gap-1">
-          <div className="bg-primary text-primary-foreground px-4 py-2.5 rounded-lg rounded-br-sm text-sm leading-relaxed">
+          <div className="bg-primary text-primary-foreground px-4 py-2.5 rounded-2xl rounded-br-sm text-sm leading-relaxed shadow-none">
             {message.content}
           </div>
-          <span className="text-[9px] text-muted-foreground/50 pr-1">
+          <span className="text-[10px] text-muted-foreground/60 pr-1 font-mono">
             {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </span>
         </div>
-        <div className="h-7 w-7 rounded-md bg-primary/10 border border-primary/25 flex items-center justify-center shrink-0 mb-4">
-          <span className="text-[9px] font-bold text-primary select-none">You</span>
+        <div className="h-7 w-7 rounded-xl bg-accent text-accent-foreground border border-primary/20 flex items-center justify-center shrink-0 mb-4 font-semibold text-xs select-none">
+          <span>You</span>
         </div>
       </div>
     )
@@ -182,26 +184,26 @@ const ChatBubble = memo(function ChatBubble({ message, onCopy, onCitationClick }
 
   return (
     <div className="flex items-start gap-2.5 group page-enter">
-      <div className="h-7 w-7 rounded-md bg-card border border-border/70 flex items-center justify-center shrink-0 mt-0.5">
-        <Sparkles className="h-3.5 w-3.5 text-copper" />
+      <div className="h-7 w-7 rounded-xl bg-card border border-border flex items-center justify-center shrink-0 mt-0.5 text-primary">
+        <Sparkles className="h-3.5 w-3.5" />
       </div>
 
-      <div className="max-w-[90%] md:max-w-[80%] flex flex-col gap-1.5 min-w-0">
+      <div className="max-w-[90%] md:max-w-[80%] flex flex-col gap-2 min-w-0">
         {message.thinking && (
-          <div className="border border-border/60 rounded-md overflow-hidden bg-muted/30 text-xs">
+          <div className="border border-border rounded-xl overflow-hidden bg-secondary/50 text-xs">
             <button
               type="button"
               onClick={() => setShowThinking(!showThinking)}
-              className="w-full px-3 py-1.5 flex justify-between items-center hover:bg-muted/50 transition-colors text-muted-foreground font-medium"
+              className="w-full px-3 py-1.5 flex justify-between items-center hover:bg-secondary transition-colors text-muted-foreground font-medium"
             >
               <span className="flex items-center gap-1.5">
-                <Loader2 className="h-3 w-3 text-primary/60" />
+                <Loader2 className="h-3 w-3 text-primary" />
                 Thinking Process
               </span>
               {showThinking ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
             </button>
             {showThinking && (
-              <div className="px-3 py-2 font-mono text-[10px] text-muted-foreground/80 whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto border-t border-border/40">
+              <div className="px-3.5 py-2.5 font-mono text-[11px] text-muted-foreground whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto border-t border-border">
                 {message.thinking}
               </div>
             )}
@@ -216,29 +218,30 @@ const ChatBubble = memo(function ChatBubble({ message, onCopy, onCitationClick }
         )}
 
         {message.isStreaming && !message.content && !message.thinking && (
-          <div className="px-4 py-3 bg-card border border-border/70 border-l-2 border-l-primary/40 rounded-lg rounded-tl-sm flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="flex gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-bounce [animation-delay:0ms]" />
-              <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-bounce [animation-delay:150ms]" />
-              <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-bounce [animation-delay:300ms]" />
+          <div className="px-4 py-3 bg-card border border-border rounded-2xl rounded-tl-sm flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="flex gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-bounce [animation-delay:0ms]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-bounce [animation-delay:150ms]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-bounce [animation-delay:300ms]" />
             </span>
+            <span className="text-xs">Thinking...</span>
           </div>
         )}
 
         {message.content && (
-          <div className="px-4 py-3 bg-card border border-border/70 border-l-2 border-l-primary/35 rounded-lg rounded-tl-sm">
+          <div className="px-5 py-4 bg-card border border-border rounded-2xl rounded-tl-sm text-foreground shadow-none">
             <div
-              className="prose prose-sm dark:prose-invert max-w-none text-foreground leading-relaxed [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_p]:mb-3 [&_strong]:font-semibold [&_h1]:font-heading [&_h1]:text-lg [&_h2]:font-heading [&_h2]:text-base [&_h3]:font-heading [&_h3]:text-sm [&_h1]:font-bold [&_h2]:font-bold [&_h3]:font-semibold [&_p:last-child]:mb-0 [&_code]:text-xs [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded-sm"
+              className="prose prose-sm dark:prose-invert max-w-none text-foreground reading-content [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_p]:mb-3 [&_strong]:font-semibold [&_h1]:font-heading [&_h1]:text-base [&_h2]:font-heading [&_h2]:text-sm [&_h3]:font-heading [&_h3]:text-xs [&_h1]:font-bold [&_h2]:font-bold [&_h3]:font-semibold [&_p:last-child]:mb-0 [&_code]:text-xs [&_code]:bg-secondary [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-md font-sans text-[15px]"
               dangerouslySetInnerHTML={{ __html: marked.parse(message.content, { async: false }) as string }}
             />
           </div>
         )}
 
         {message.citations && message.citations.length > 0 && (
-          <div className="flex flex-col gap-1 mt-0.5">
-            <span className="text-[9px] font-semibold text-muted-foreground/60 uppercase tracking-wider flex items-center gap-1">
-              <BookOpen className="h-2.5 w-2.5" />
-              Sources
+          <div className="flex flex-col gap-1.5 mt-0.5">
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+              <BookOpen className="h-3 w-3 text-primary" />
+              Sources & Citations
             </span>
             <div className="flex flex-wrap gap-1.5">
               {message.citations.map((c: any, i: number) => (
@@ -258,24 +261,24 @@ const ChatBubble = memo(function ChatBubble({ message, onCopy, onCitationClick }
         {message.content && (
           <div className="flex items-center gap-2 pl-1 flex-wrap">
             {message.removedCount !== undefined && (
-              <span className="text-[9px] bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 px-1.5 py-0.5 rounded-sm font-medium flex items-center gap-1">
+              <span className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
                 <CheckCircle2 className="h-2.5 w-2.5" />
-                Verified
-                {message.removedCount > 0 && ` (${message.removedCount} removed)`}
+                Verified Grounding
+                {message.removedCount > 0 && ` (${message.removedCount} unverified removed)`}
               </span>
             )}
-            <span className="text-[9px] text-muted-foreground/40">
+            <span className="text-[10px] text-muted-foreground font-mono">
               {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
             <button
               type="button"
               onClick={handleCopy}
-              className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground/50 hover:text-primary"
+              className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary p-1"
               title="Copy answer"
             >
               {copied
-                ? <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-                : <Copy className="h-3 w-3" />}
+                ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                : <Copy className="h-3.5 w-3.5" />}
             </button>
           </div>
         )}
@@ -603,22 +606,21 @@ function ChatComponent() {
   if (!chatReady) {
     return (
       <div className="flex-1 flex items-center justify-center p-6 min-h-[400px]">
-        <Card className="w-full max-w-xl bg-card border-border/70 relative overflow-hidden rounded-lg page-enter">
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+        <Card className="w-full max-w-xl bg-card border border-border relative overflow-hidden rounded-2xl page-enter shadow-none">
           <CardHeader className="text-center pb-4 pt-8">
-            <div className="mx-auto w-12 h-12 rounded-lg bg-primary/8 border border-primary/20 flex items-center justify-center mb-4 text-primary">
+            <div className="mx-auto w-12 h-12 rounded-xl bg-accent border border-primary/20 flex items-center justify-center mb-3 text-primary">
               <Cpu className="h-6 w-6" />
             </div>
-            <CardTitle className="text-2xl font-heading font-semibold tracking-tight">
-              Load the archive engines
+            <CardTitle className="text-xl font-heading font-semibold tracking-tight">
+              Initialize Study Assistant
             </CardTitle>
-            <CardDescription className="text-sm text-muted-foreground max-w-sm mx-auto page-enter-delay-1">
-              Before querying your documents, load the embedding model and LLM weights into browser memory.
+            <CardDescription className="text-xs text-muted-foreground max-w-sm mx-auto page-enter-delay-1">
+              Before querying your study material, load the embedding model and local LLM weights into browser memory.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6 px-8 pb-8 page-enter-delay-2">
             {loadingError && (
-              <div className="p-4 rounded-md bg-destructive/10 border border-destructive/20 text-destructive flex items-start gap-3 text-xs">
+              <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive flex items-start gap-3 text-xs">
                 <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
                 <span>{loadingError}</span>
               </div>
@@ -626,30 +628,30 @@ function ChatComponent() {
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-                  <Layers className="h-3.5 w-3.5 text-primary/70" />
-                  Embedding Model (Project-locked)
+                  <Layers className="h-3.5 w-3.5 text-primary" />
+                  Embedding Model (Workspace-locked)
                 </label>
-                <div className="w-full bg-background/60 border border-border/70 rounded-md p-2.5 text-xs text-muted-foreground flex items-center gap-2">
+                <div className="w-full bg-secondary/60 border border-border rounded-xl p-2.5 text-xs text-muted-foreground flex items-center gap-2">
                   <span className="font-semibold text-foreground">
                     {activeProject
                       ? (EMBEDDING_MODELS.find((m) => m.id === activeProject.embeddingModelId)?.displayName ?? activeProject.embeddingModelId)
-                      : 'No project selected'}
+                      : 'No workspace selected'}
                   </span>
                   {activeProject && (
-                    <span className="text-[10px] bg-secondary border border-border/50 px-1.5 py-0.5 rounded-sm text-muted-foreground">locked</span>
+                    <span className="text-[10px] bg-card border border-border px-2 py-0.5 rounded-md text-muted-foreground">locked</span>
                   )}
                 </div>
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-                  <Cpu className="h-3.5 w-3.5 text-primary/70" />
+                  <Cpu className="h-3.5 w-3.5 text-primary" />
                   Local LLM Option
                 </label>
                 <select
                   disabled={isInitializing}
                   value={prefs.llmVariantId}
                   onChange={(e) => updatePreferences({ llmVariantId: e.target.value, llmModelId: getLLMOption(e.target.value).logicalModelId })}
-                  className="w-full bg-card border border-border/70 rounded-md p-2.5 text-xs text-foreground focus:ring-1 focus:ring-ring outline-none disabled:opacity-50"
+                  className="w-full bg-card border border-border rounded-xl p-2.5 text-xs text-foreground focus:ring-2 focus:ring-ring/25 outline-none disabled:opacity-50"
                 >
                 {LLM_OPTIONS.map((opt) => {
                     const unavailable = webgpu === false && engineRequiresWebGPU(opt.engineType)
@@ -729,21 +731,54 @@ function ChatComponent() {
         <div className="flex-1 overflow-y-auto min-h-0">
           <div className="w-full px-4 md:px-6 py-6 md:py-8 space-y-6 md:space-y-8">
             {messages.length === 0 && !errorMessage && (
-              <div className="flex flex-col items-center justify-center text-center space-y-4 pt-16 md:pt-28 select-none page-enter">
-                <p className="font-heading text-3xl md:text-4xl font-semibold text-foreground tracking-tight max-w-md">
-                  Gyaanसूत्र
-                </p>
-                <p className="text-sm text-muted-foreground leading-relaxed max-w-sm page-enter-delay-1">
-                  Ask anything about your documents — semantic search, keyword fusion, and a local LLM, entirely in-browser.
-                </p>
+              <div className="relative flex flex-col items-center justify-center text-center space-y-3 pt-16 md:pt-24 select-none page-enter rounded-3xl p-6 overflow-hidden">
+                <div
+                  className="pointer-events-none absolute inset-0 opacity-25 dark:hidden bg-cover bg-center bg-no-repeat transition-opacity"
+                  style={{ backgroundImage: `url(${bgLightSvg})` }}
+                  aria-hidden
+                />
+                <div
+                  className="pointer-events-none absolute inset-0 opacity-30 hidden dark:block bg-cover bg-center bg-no-repeat transition-opacity"
+                  style={{ backgroundImage: `url(${bgSvg})` }}
+                  aria-hidden
+                />
+
+                {/* Floating academic status beacons */}
+                <div className="animate-float-slow absolute top-6 left-6 hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-full bg-card/90 border border-primary/20 text-[11px] font-mono text-muted-foreground shadow-xs pointer-events-none">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Local Vector Indexing Active</span>
+                </div>
+                <div className="animate-float-reverse absolute bottom-6 right-6 hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-full bg-card/90 border border-primary/20 text-[11px] font-mono text-muted-foreground shadow-xs pointer-events-none">
+                  <span className="font-serif italic font-semibold text-primary">सूत्र</span>
+                  <span>Strict Grounded Verification</span>
+                </div>
+
+                <div className="relative z-10 flex flex-col items-center">
+                  <div className="h-12 w-12 rounded-2xl bg-accent border border-primary/20 flex items-center justify-center text-primary mb-3">
+                    <BookOpen className="h-6 w-6" />
+                  </div>
+                  <p className="font-heading text-2xl md:text-3xl font-semibold text-foreground tracking-tight max-w-md">
+                    Gyaanसूत्र
+                  </p>
+                  <p className="text-xs text-muted-foreground leading-relaxed max-w-sm mt-2 page-enter-delay-1">
+                    StudyGround Assistant — ask questions about your uploaded materials. Get grounded answers backed by verified citations.
+                  </p>
+                  <Link
+                    to="/landing"
+                    className="mt-4 inline-flex items-center gap-2 rounded-xl bg-accent/90 hover:bg-accent border border-primary/30 px-4 py-2 text-xs text-primary font-medium shadow-xs transition-all hover:scale-[1.02] page-enter-delay-2"
+                  >
+                    <BookOpen className="h-3.5 w-3.5 text-primary" />
+                    <span>Experience Gyansutra Opening Story & Landing Page →</span>
+                  </Link>
+                </div>
               </div>
             )}
 
             {errorMessage && (
-              <div className="p-4 rounded-md bg-destructive/10 border border-destructive/20 text-destructive flex items-start gap-3">
+              <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive flex items-start gap-3">
                 <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-medium text-sm">Error</p>
+                  <p className="font-semibold text-sm">Error</p>
                   <p className="text-xs opacity-90 mt-0.5">{errorMessage}</p>
                 </div>
               </div>
@@ -773,30 +808,30 @@ function ChatComponent() {
         )}
 
         {selectedDocIds.size > 0 && (
-          <div className="flex flex-wrap gap-1.5 items-center px-4 md:px-6 py-1.5 border-t border-border/40 bg-card/40 shrink-0">
-            <span className="text-[10px] text-muted-foreground">Filtering:</span>
+          <div className="flex flex-wrap gap-1.5 items-center px-4 md:px-6 py-2 border-t border-border bg-card/60 shrink-0">
+            <span className="text-xs text-muted-foreground font-medium">Filtering:</span>
             {projectDocs.filter((d: any) => selectedDocIds.has(d.id)).map((d: any) => (
-              <span key={d.id} className="inline-flex items-center gap-1 text-[10px] bg-primary/8 border border-primary/25 text-primary px-2 py-0.5 rounded-sm">
+              <span key={d.id} className="inline-flex items-center gap-1.5 text-xs bg-accent text-accent-foreground border border-primary/20 px-2.5 py-0.5 rounded-full font-medium">
                 {d.name}
                 <button type="button" onClick={() => setSelectedDocIds((prev) => { const n = new Set(prev); n.delete(d.id); return n })} className="hover:text-destructive">
-                  <X className="h-2.5 w-2.5" />
+                  <X className="h-3 w-3" />
                 </button>
               </span>
             ))}
           </div>
         )}
 
-        <div className="shrink-0 px-4 md:px-6 pt-2 pb-2 md:pt-3 md:pb-2">
-          <div className="w-full">
+        <div className="shrink-0 px-4 md:px-6 pt-2 pb-3">
+          <div className="w-full max-w-4xl mx-auto">
             {statusMessage && (
-              <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 bg-secondary px-2.5 py-1 rounded-sm border border-border/50 w-fit mb-2">
-                <Loader2 className="h-2.5 w-2.5 animate-spin text-primary" />
+              <div className="text-xs text-muted-foreground flex items-center gap-1.5 bg-secondary px-3 py-1 rounded-full border border-border w-fit mb-2">
+                <Loader2 className="h-3 w-3 animate-spin text-primary" />
                 {statusMessage}
               </div>
             )}
             <form
               onSubmit={handleSearch}
-              className="flex flex-col gap-2 bg-card border border-border/70 rounded-lg p-3 shadow-lg composer-focus-wash transition-all"
+              className="flex flex-col gap-2 bg-card border border-border rounded-2xl p-3.5 shadow-none composer-focus-wash transition-colors"
             >
               <div className="flex items-start gap-3">
                 <textarea
@@ -809,9 +844,9 @@ function ChatComponent() {
                     e.target.style.height = `${Math.min(e.target.scrollHeight, 140)}px`
                   }}
                   onKeyDown={handleKeyDown}
-                  placeholder="Ask anything... (Enter to send, Shift+Enter for newline)"
+                  placeholder="Ask a question about your study material... (Enter to send, Shift+Enter for newline)"
                   disabled={isGenerating || isSwitchingModel || !dbReady || (!isLlmReady && effectiveTier !== 0)}
-                  className="flex-1 resize-none bg-transparent border-0 outline-none text-sm text-foreground placeholder:text-muted-foreground/45 leading-relaxed py-1 min-h-[28px] max-h-[140px] disabled:opacity-50"
+                  className="flex-1 resize-none bg-transparent border-0 outline-none text-sm text-foreground placeholder:text-muted-foreground/60 leading-relaxed py-1 min-h-[32px] max-h-[140px] disabled:opacity-50"
                 />
                 {isGenerating ? (
                   <Button
@@ -819,7 +854,7 @@ function ChatComponent() {
                     variant="destructive"
                     size="sm"
                     onClick={handleAbort}
-                    className="shrink-0 rounded-md h-8 px-3 flex items-center gap-1.5 text-xs mt-0.5"
+                    className="shrink-0 rounded-xl h-9 px-3 flex items-center gap-1.5 text-xs font-medium"
                   >
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     Stop
@@ -828,13 +863,13 @@ function ChatComponent() {
                   <button
                     type="submit"
                     disabled={!dbReady || (!isLlmReady && effectiveTier !== 0) || isSwitchingModel || !queryText.trim()}
-                    className="shrink-0 h-8 w-8 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed mt-0.5"
+                    className="shrink-0 h-9 w-9 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed mt-0.5"
                   >
                     <Send className="h-3.5 w-3.5" />
                   </button>
                 )}
               </div>
-              <div className="flex items-center gap-3 pt-2 border-t border-border/40">
+              <div className="flex items-center gap-3 pt-2 border-t border-border">
                 <div className="relative" ref={modelRef}>
                   <button
                     type="button"
@@ -843,28 +878,28 @@ function ChatComponent() {
                     aria-haspopup="listbox"
                     aria-expanded={modelOpen}
                     className={cn(
-                      'flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-sm border transition-all',
-                      'border-border/50 bg-secondary/60 text-muted-foreground hover:border-border hover:text-foreground',
+                      'flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition-colors',
+                      'border-border bg-secondary text-muted-foreground hover:border-primary/40 hover:text-foreground',
                       'disabled:opacity-40 disabled:cursor-not-allowed'
                     )}
                   >
                     {isSwitchingModel || llmLoading ? (
-                      <Loader2 className="h-2.5 w-2.5 animate-spin text-primary" />
+                      <Loader2 className="h-3 w-3 animate-spin text-primary" />
                     ) : (
-                      <Cpu className="h-2.5 w-2.5 text-primary" />
+                      <Cpu className="h-3 w-3 text-primary" />
                     )}
                     <span className="font-medium text-foreground">{prefs.overrideHardwareTier === 0 ? 'Evidence-Only (Tier 0)' : option.name}</span>
-                    <ChevronDown className={cn('h-2.5 w-2.5 transition-transform', modelOpen && 'rotate-180')} />
+                    <ChevronDown className={cn('h-3 w-3 transition-transform', modelOpen && 'rotate-180')} />
                   </button>
 
                   {modelOpen && (
-                    <div className="absolute left-0 bottom-full mb-2 z-50 w-80 rounded-lg border border-border/70 bg-popover shadow-lg overflow-hidden">
-                      <div className="flex items-center justify-between px-3 py-2.5 border-b border-border/50">
+                    <div className="absolute left-0 bottom-full mb-2 z-50 w-80 rounded-2xl border border-border bg-popover shadow-xl overflow-hidden">
+                      <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-border">
                         <span className="text-xs font-semibold flex items-center gap-1.5">
                           <Cpu className="h-3.5 w-3.5 text-primary" />
-                          Select LLM
+                          Study Assistant Model
                         </span>
-                        <span className="text-[10px] text-muted-foreground">Loads in browser</span>
+                        <span className="text-[10px] text-muted-foreground">In-browser local AI</span>
                       </div>
                       <div className="max-h-64 overflow-y-auto py-1.5" role="listbox">
                         <button
@@ -946,15 +981,15 @@ function ChatComponent() {
                     onClick={() => { setFilterOpen((o) => !o); setModelOpen(false) }}
                     disabled={isGenerating || isSwitchingModel || !dbReady || projectDocs.length === 0}
                     className={cn(
-                      'flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-sm border transition-all',
+                      'flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition-colors',
                       selectedDocIds.size > 0
-                        ? 'border-primary/40 bg-primary/5 text-primary'
-                        : 'border-border/50 text-muted-foreground hover:border-border hover:text-foreground',
+                        ? 'border-primary/40 bg-accent text-accent-foreground font-medium'
+                        : 'border-border bg-secondary text-muted-foreground hover:border-primary/40 hover:text-foreground',
                       'disabled:opacity-40'
                     )}
                   >
-                    <BookOpen className="h-2.5 w-2.5" />
-                    {selectedDocIds.size > 0 ? `${selectedDocIds.size} doc${selectedDocIds.size > 1 ? 's' : ''}` : 'All Documents'}
+                    <BookOpen className="h-3 w-3 text-primary" />
+                    {selectedDocIds.size > 0 ? `${selectedDocIds.size} doc${selectedDocIds.size > 1 ? 's' : ''}` : 'All Study Material'}
                     {selectedDocIds.size > 0 && (
                       <span
                         role="button"
@@ -962,18 +997,18 @@ function ChatComponent() {
                         onClick={(e) => { e.stopPropagation(); setSelectedDocIds(new Set()) }}
                         className="ml-0.5 hover:text-destructive transition-colors"
                       >
-                        <X className="h-2.5 w-2.5" />
+                        <X className="h-3 w-3" />
                       </span>
                     )}
                   </button>
 
                   {filterOpen && projectDocs.length > 0 && (
-                    <div className="absolute left-0 bottom-full mb-2 z-50 w-72 rounded-lg border border-border/70 bg-popover shadow-lg overflow-hidden">
-                      <div className="flex items-center justify-between px-3 py-2.5 border-b border-border/50">
-                        <span className="text-xs font-semibold flex items-center gap-1.5"><FileText className="h-3.5 w-3.5 text-primary" />Filter by Document</span>
+                    <div className="absolute left-0 bottom-full mb-2 z-50 w-72 rounded-2xl border border-border bg-popover shadow-xl overflow-hidden">
+                      <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-border">
+                        <span className="text-xs font-semibold flex items-center gap-1.5 text-foreground"><FileText className="h-3.5 w-3.5 text-primary" />Filter by Document</span>
                         <div className="flex items-center gap-1">
                           {selectedDocIds.size > 0 && (
-                            <button type="button" onClick={() => setSelectedDocIds(new Set())} className="text-[10px] text-muted-foreground hover:text-destructive px-1.5 py-0.5 rounded-sm">
+                            <button type="button" onClick={() => setSelectedDocIds(new Set())} className="text-[10px] text-muted-foreground hover:text-destructive px-2 py-0.5 rounded-md hover:bg-destructive/10">
                               Clear all
                             </button>
                           )}
@@ -993,7 +1028,7 @@ function ChatComponent() {
                             <button
                               key={doc.id}
                               type="button"
-                              onClick={() => setSelectedDocIds((prev) => { const n = new Set(prev); checked ? n.delete(doc.id) : n.add(doc.id); return n })}
+                              onClick={() => setSelectedDocIds((prev) => { const n = new Set(prev); if (checked) { n.delete(doc.id) } else { n.add(doc.id) } return n })}
                               className={cn('w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-secondary/40 text-left', checked && 'bg-primary/5 text-primary')}
                             >
                               <span className={cn('h-4 w-4 rounded-sm border flex items-center justify-center shrink-0', checked ? 'bg-primary border-primary text-primary-foreground' : 'border-border')}>

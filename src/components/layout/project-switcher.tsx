@@ -140,14 +140,14 @@ export function ProjectSwitcher() {
         type='button'
         onClick={() => { setOpen((o) => !o); setShowCreate(false) }}
         className={cn(
-          'flex items-center gap-2 h-8 px-3 rounded-md border text-xs font-medium transition-all duration-150',
-          'bg-card border-border/70 text-foreground hover:border-primary/40 hover:bg-card',
-          open && 'border-primary/40 ring-1 ring-ring/30'
+          'flex items-center gap-2 h-9 px-3 rounded-xl border text-xs font-medium transition-all duration-150',
+          'bg-card border-border text-foreground hover:border-primary/40 hover:bg-secondary',
+          open && 'border-primary ring-2 ring-ring/25'
         )}
       >
-        <FolderOpen className='h-3.5 w-3.5 text-primary/80 shrink-0' />
+        <FolderOpen className='h-3.5 w-3.5 text-primary shrink-0' />
         <span className='max-w-[90px] sm:max-w-[140px] truncate'>
-          {activeProject?.name ?? 'Select project'}
+          {activeProject?.name ?? 'Select workspace'}
         </span>
         <ChevronDown className={cn('h-3.5 w-3.5 text-muted-foreground transition-transform duration-150 shrink-0', open && 'rotate-180')} />
       </button>
@@ -155,13 +155,13 @@ export function ProjectSwitcher() {
       {open && (
         <div className={cn(
           'absolute left-0 top-full mt-1.5 z-[200]',
-          'w-64 bg-popover border border-border/70 rounded-lg shadow-lg',
+          'w-72 bg-popover border border-border rounded-2xl shadow-lg',
           'page-enter overflow-hidden'
         )}>
-          <div className='max-h-56 overflow-y-auto py-1'>
+          <div className='max-h-56 overflow-y-auto py-1.5'>
             {projects.length === 0 ? (
               <p className='px-3 py-4 text-xs text-muted-foreground text-center'>
-                No projects yet. Create one below.
+                No workspaces yet. Create one below.
               </p>
             ) : (
               projects.map((project) => {
@@ -173,13 +173,13 @@ export function ProjectSwitcher() {
                     type='button'
                     onClick={() => handleSelect(project)}
                     className={cn(
-                      'w-full flex items-start gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-accent/60',
-                      isActive && 'bg-primary/6'
+                      'w-full flex items-start gap-2.5 px-3.5 py-2 text-left transition-colors hover:bg-secondary/70',
+                      isActive && 'bg-accent/80'
                     )}
                   >
                     <div className={cn(
-                      'mt-0.5 h-4 w-4 shrink-0 rounded flex items-center justify-center',
-                      isActive ? 'text-copper' : 'text-transparent'
+                      'mt-0.5 h-4 w-4 shrink-0 rounded-md flex items-center justify-center',
+                      isActive ? 'text-primary' : 'text-transparent'
                     )}>
                       <Check className='h-3.5 w-3.5' />
                     </div>
@@ -188,7 +188,7 @@ export function ProjectSwitcher() {
                         {project.name}
                       </p>
                       <p className='text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1 truncate'>
-                        <Layers className='h-2.5 w-2.5 shrink-0' />
+                        <Layers className='h-2.5 w-2.5 shrink-0 text-primary/70' />
                         {model?.displayName ?? project.embeddingModelId}
                       </p>
                     </div>
@@ -204,14 +204,14 @@ export function ProjectSwitcher() {
               onCancel={() => setShowCreate(false)}
             />
           ) : (
-            <div className='border-t border-border/60 p-1'>
+            <div className='border-t border-border p-1.5'>
               <button
                 type='button'
                 onClick={() => setShowCreate(true)}
-                className='w-full flex items-center gap-2 px-3 py-2 text-xs text-primary hover:bg-primary/6 rounded-md transition-colors font-medium'
+                className='w-full flex items-center gap-2 px-3 py-2 text-xs text-primary hover:bg-accent/60 rounded-xl transition-colors font-medium'
               >
                 <Plus className='h-3.5 w-3.5' />
-                Create new project
+                Create new workspace
               </button>
             </div>
           )}

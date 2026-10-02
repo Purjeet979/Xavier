@@ -266,52 +266,52 @@ function DocumentsComponent() {
       <div className='shrink-0 flex items-center justify-between gap-4'>
         <div>
           <h1 className='font-heading text-2xl font-semibold tracking-tight'>Documents</h1>
-          <p className='text-muted-foreground text-sm mt-1'>
-            Upload and index documents into your local PGlite vector database.
+          <p className='text-muted-foreground text-xs mt-1'>
+            Manage and index study materials into your local browser database.
           </p>
         </div>
-        <div className='flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-card border border-border/70 text-xs text-muted-foreground shrink-0'>
-          <FolderOpen className='h-3.5 w-3.5 text-primary/70' />
-          <span className='font-semibold text-foreground'>{activeProject.name}</span>
+        <div className='flex items-center gap-2 px-3 py-1.5 rounded-xl bg-card border border-border text-xs text-muted-foreground shrink-0'>
+          <FolderOpen className='h-3.5 w-3.5 text-primary' />
+          <span className='font-medium text-foreground'>{activeProject.name}</span>
           <span className='text-border'>·</span>
-          <Layers className='h-3 w-3' />
+          <Layers className='h-3 w-3 text-primary/70' />
           <span>{modelConfig?.displayName ?? activeProject.embeddingModelId}</span>
         </div>
       </div>
 
       <div className='grid gap-6 md:grid-cols-3 flex-1 min-h-0'>
         <div className='md:col-span-1 space-y-4 shrink-0'>
-          <Card className='bg-card border-border/70'>
+          <Card className='bg-card border-border'>
             <CardHeader>
-              <CardTitle>File Upload</CardTitle>
-              <CardDescription>Select documents to parse and add to the index.</CardDescription>
+              <CardTitle>Study Material Upload</CardTitle>
+              <CardDescription>Select documents to parse, embed, and index for study.</CardDescription>
             </CardHeader>
             <CardContent className='space-y-4'>
               {!embeddingReady ? (
-                <div className='space-y-4 p-4 border border-border/70 rounded-md bg-accent/20 flex flex-col items-center text-center gap-3'>
-                  <div className='p-3 bg-primary/10 rounded-md text-primary border border-primary/20'>
+                <div className='space-y-4 p-5 border border-border rounded-2xl bg-secondary/40 flex flex-col items-center text-center gap-3'>
+                  <div className='p-3 bg-accent rounded-xl text-primary border border-primary/20'>
                     <Layers className='h-6 w-6' />
                   </div>
                   <div className='space-y-1'>
-                    <h4 className='font-heading font-semibold text-sm'>Embedding Model Required</h4>
-                    <p className='text-[11px] text-muted-foreground max-w-[200px] mx-auto'>
+                    <h4 className='font-heading font-semibold text-sm text-foreground'>Embedding Model Required</h4>
+                    <p className='text-xs text-muted-foreground max-w-[220px] mx-auto'>
                       Load the embedding model to extract document features and index them.
                     </p>
-                    <p className='text-[10px] text-primary font-semibold mt-1'>
+                    <p className='text-xs text-primary font-medium mt-1'>
                       Model: {modelConfig?.displayName || 'None'}
                     </p>
                   </div>
 
                   {embeddingLoading ? (
                     <div className='w-full space-y-1.5 pt-2'>
-                      <div className='flex justify-between text-[10px] font-semibold text-muted-foreground font-mono'>
-                        <span className='flex items-center gap-1'>
+                      <div className='flex justify-between text-xs font-medium text-muted-foreground font-mono'>
+                        <span className='flex items-center gap-1.5'>
                           <Loader2 className='h-3 w-3 animate-spin text-primary' />
                           Downloading...
                         </span>
                         <span>{embeddingProgress}%</span>
                       </div>
-                      <div className='w-full bg-secondary h-1 rounded-full overflow-hidden'>
+                      <div className='w-full bg-secondary h-1.5 rounded-full overflow-hidden'>
                         <div
                           className='bg-primary h-full transition-all duration-300'
                           style={{ width: `${embeddingProgress}%` }}
@@ -321,7 +321,7 @@ function DocumentsComponent() {
                   ) : (
                     <Button
                       onClick={loadEmbeddingModel}
-                      className='w-full mt-2 font-semibold'
+                      className='w-full mt-2 font-medium'
                     >
                       Load Embedding Model
                     </Button>
@@ -334,7 +334,7 @@ function DocumentsComponent() {
                     disabled={isBusy || !dbReady}
                   />
                   {uploadingStatus && (
-                    <div className='flex items-center gap-2 p-3 bg-accent/40 rounded-md text-xs text-foreground font-medium border border-border/60'>
+                    <div className='flex items-center gap-2 p-3 bg-accent/60 rounded-xl text-xs text-foreground font-medium border border-primary/20'>
                       <Loader2 className='h-4 w-4 animate-spin text-primary shrink-0' />
                       <span>{uploadingStatus}</span>
                     </div>
@@ -346,46 +346,46 @@ function DocumentsComponent() {
         </div>
 
         <div className='md:col-span-2 flex flex-col min-h-0'>
-          <Card className='flex-1 bg-card border-border/70 flex flex-col overflow-hidden'>
+          <Card className='flex-1 bg-card border-border flex flex-col overflow-hidden'>
             <CardHeader className='shrink-0'>
-              <CardTitle>Indexed Documents</CardTitle>
-              <CardDescription>View and manage your locally stored files.</CardDescription>
+              <CardTitle>Indexed Materials</CardTitle>
+              <CardDescription>View and inspect your locally stored documents.</CardDescription>
             </CardHeader>
             <CardContent className='flex-1 overflow-y-auto min-h-0 pt-0'>
               {!dbReady || isLoading ? (
-                <div className='h-48 flex items-center justify-center text-muted-foreground gap-2'>
-                  <Loader2 className='h-5 w-5 animate-spin text-primary' />
+                <div className='h-48 flex items-center justify-center text-muted-foreground gap-2 text-xs'>
+                  <Loader2 className='h-4 w-4 animate-spin text-primary' />
                   <span>Loading local documents...</span>
                 </div>
               ) : documents.length === 0 ? (
                 <div className='h-48 flex flex-col items-center justify-center text-muted-foreground text-sm gap-2'>
-                  <FileText className='h-10 w-10 text-muted-foreground/40' />
-                  <span>No documents indexed yet. Use the upload panel to add some.</span>
+                  <FileText className='h-8 w-8 text-primary/30' />
+                  <span className='text-xs'>No documents indexed yet. Use the upload panel to add some.</span>
                 </div>
               ) : (
                 <div className='space-y-4'>
-                  <div className='hidden sm:block border border-border/50 rounded-lg overflow-hidden'>
+                  <div className='hidden sm:block border border-border rounded-xl overflow-hidden'>
                     <table className='w-full text-left text-sm border-collapse'>
                       <thead>
-                        <tr className='bg-accent/40 border-b border-border/50'>
+                        <tr className='bg-secondary/60 border-b border-border'>
                           <th className='p-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground'>Name</th>
                           <th className='p-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground'>Size</th>
                           <th className='p-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground'>Status</th>
                           <th className='p-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground text-right'>Action</th>
                         </tr>
                       </thead>
-                      <tbody className='divide-y divide-border/40'>
+                      <tbody className='divide-y divide-border'>
                         {documents.map((doc: any) => (
-                          <tr key={doc.id} className='hover:bg-accent/10 transition-colors align-top'>
+                          <tr key={doc.id} className='hover:bg-secondary/30 transition-colors align-top'>
                             <td className='p-3 font-medium max-w-[240px]'>
-                              <div className='truncate'>{doc.name}</div>
+                              <div className='truncate text-foreground text-xs font-medium'>{doc.name}</div>
                               {doc.status === 'failed' && doc.error_message && (
-                                <p className='text-[11px] text-destructive/90 mt-1 leading-snug line-clamp-3 font-normal'>
+                                <p className='text-xs text-destructive mt-1 leading-snug line-clamp-3 font-normal'>
                                   {doc.error_message}
                                 </p>
                               )}
                               {doc.status === 'completed' && getDocMeta(doc).warning && (
-                                <p className='text-[11px] text-amber-600 dark:text-amber-400 mt-1 leading-snug font-normal flex items-start gap-1'>
+                                <p className='text-xs text-warning mt-1 leading-snug font-normal flex items-start gap-1'>
                                   <AlertCircle className='h-3 w-3 shrink-0 mt-0.5' />
                                   <span>{getDocMeta(doc).warning}</span>
                                 </p>
@@ -396,18 +396,18 @@ function DocumentsComponent() {
                             </td>
                             <td className='p-3'>
                               <span
-                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-xs font-medium ${
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${
                                   doc.status === 'completed'
-                                    ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                                    ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20'
                                     : doc.status === 'failed'
-                                      ? 'bg-destructive/10 text-destructive'
-                                      : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 animate-pulse'
+                                      ? 'bg-destructive/10 text-destructive border border-destructive/20'
+                                      : 'bg-accent text-accent-foreground border border-primary/20 animate-pulse'
                                 }`}
                               >
                                 {doc.status === 'completed' && <CheckCircle2 className='h-3 w-3' />}
                                 {doc.status === 'failed' && <AlertCircle className='h-3 w-3' />}
                                 {(doc.status === 'processing' || doc.status === 'pending') && (
-                                  <Loader2 className='h-3 w-3 animate-spin' />
+                                  <Loader2 className='h-3 w-3 animate-spin text-primary' />
                                 )}
                                 <span className='capitalize'>{doc.status}</span>
                               </span>
@@ -460,19 +460,19 @@ function DocumentsComponent() {
 
                   <div className='sm:hidden space-y-3'>
                     {documents.map((doc: any) => (
-                      <div key={doc.id} className='p-3 rounded-lg border border-border/45 bg-accent/5 flex flex-col gap-2'>
+                      <div key={doc.id} className='p-3.5 rounded-xl border border-border bg-card flex flex-col gap-2.5'>
                         <div className='flex items-start justify-between gap-2'>
                           <p className='font-medium text-xs text-foreground break-all line-clamp-2 flex-1'>{doc.name}</p>
-                          <div className='flex items-center gap-0.5 shrink-0'>
+                          <div className='flex items-center gap-1 shrink-0'>
                             {doc.status === 'completed' && (
                               <Button
                                 variant='ghost'
                                 size='icon'
                                 title='Explore chunks'
                                 onClick={() => setExplorerDoc({ id: doc.id, name: doc.name })}
-                                className='h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg'
+                                className='h-8 w-8 text-muted-foreground hover:text-primary hover:bg-secondary rounded-xl'
                               >
-                                <Eye className='h-3.5 w-3.5' />
+                                <Eye className='h-4 w-4' />
                               </Button>
                             )}
                             {doc.status === 'failed' && (
@@ -482,9 +482,9 @@ function DocumentsComponent() {
                                 title='Retry indexing'
                                 disabled={isBusy}
                                 onClick={() => retryMutation.mutate(doc.id)}
-                                className='h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg'
+                                className='h-8 w-8 text-muted-foreground hover:text-primary hover:bg-secondary rounded-xl'
                               >
-                                <RotateCcw className='h-3.5 w-3.5' />
+                                <RotateCcw className='h-4 w-4' />
                               </Button>
                             )}
                             <Button
@@ -492,33 +492,33 @@ function DocumentsComponent() {
                               size='icon'
                               disabled={deleteMutation.isPending || isBusy}
                               onClick={() => deleteMutation.mutate(doc.id)}
-                              className='h-7 w-7 hover:text-destructive text-muted-foreground hover:bg-destructive/10 rounded-lg'
+                              className='h-8 w-8 hover:text-destructive text-muted-foreground hover:bg-destructive/10 rounded-xl'
                             >
-                              <Trash2 className='h-3.5 w-3.5' />
+                              <Trash2 className='h-4 w-4' />
                             </Button>
                           </div>
                         </div>
                         {(doc.status === 'failed' || doc.status === 'completed') && doc.error_message && (
-                          <p className={`text-[10px] leading-snug ${doc.status === 'failed' ? 'text-destructive/90' : 'text-amber-600/90 dark:text-amber-400/90'}`}>
+                          <p className={`text-xs leading-snug ${doc.status === 'failed' ? 'text-destructive' : 'text-warning'}`}>
                             {doc.error_message}
                           </p>
                         )}
-                        <div className='flex items-center gap-2 text-[10px] text-muted-foreground flex-wrap'>
+                        <div className='flex items-center gap-2 text-xs text-muted-foreground flex-wrap'>
                           <span className='font-mono'>{formatBytes(doc.size_bytes)}</span>
                           <span>·</span>
                           <span
-                            className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-sm font-medium ${
+                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-medium text-xs ${
                               doc.status === 'completed'
-                                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20'
                                 : doc.status === 'failed'
-                                  ? 'bg-destructive/10 text-destructive'
-                                  : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 animate-pulse'
+                                  ? 'bg-destructive/10 text-destructive border border-destructive/20'
+                                  : 'bg-accent text-accent-foreground border border-primary/20 animate-pulse'
                             }`}
                           >
-                            {doc.status === 'completed' && <CheckCircle2 className='h-2.5 w-2.5 font-semibold' />}
-                            {doc.status === 'failed' && <AlertCircle className='h-2.5 w-2.5' />}
+                            {doc.status === 'completed' && <CheckCircle2 className='h-3 w-3' />}
+                            {doc.status === 'failed' && <AlertCircle className='h-3 w-3' />}
                             {(doc.status === 'processing' || doc.status === 'pending') && (
-                              <Loader2 className='h-2.5 w-2.5 animate-spin' />
+                              <Loader2 className='h-3 w-3 animate-spin text-primary' />
                             )}
                             <span className='capitalize'>{doc.status}</span>
                           </span>

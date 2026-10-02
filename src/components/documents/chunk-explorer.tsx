@@ -48,36 +48,36 @@ export function ChunkExplorer({ documentId, documentName, initialChunkId, onClos
   })
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-      <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 w-full sm:max-w-2xl sm:mx-4 max-h-[85vh] flex flex-col bg-card border border-border/70 rounded-t-lg sm:rounded-lg shadow-xl page-enter">
-        <div className="flex items-start justify-between gap-3 px-4 py-3 border-b border-border/60 shrink-0">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-10 w-full sm:max-w-2xl max-h-[85vh] flex flex-col bg-card border border-border rounded-t-2xl sm:rounded-2xl shadow-xl page-enter">
+        <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-border shrink-0">
           <div className="min-w-0">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-0.5">
-              <Layers className="h-3.5 w-3.5 text-primary" />
-              Chunk explorer
+            <div className="flex items-center gap-2 text-xs text-primary font-medium mb-1">
+              <Layers className="h-3.5 w-3.5" />
+              Document Chunks
             </div>
-            <h2 className="font-heading font-semibold text-base truncate">{documentName}</h2>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              {isLoading ? 'Loading…' : `${chunks.length} chunk${chunks.length === 1 ? '' : 's'}`}
+            <h2 className="font-heading font-semibold text-base text-foreground truncate">{documentName}</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {isLoading ? 'Loading…' : `${chunks.length} chunk${chunks.length === 1 ? '' : 's'} extracted`}
             </p>
           </div>
           <Button
             variant="ghost"
             size="icon"
             onClick={onClose}
-            className="h-8 w-8 shrink-0 text-muted-foreground"
+            className="h-8 w-8 rounded-xl shrink-0 text-muted-foreground hover:bg-secondary hover:text-foreground"
           >
             <X className="h-4 w-4" />
           </Button>
         </div>
 
-        <div className="flex-1 overflow-y-auto min-h-0 p-3 space-y-2">
+        <div className="flex-1 overflow-y-auto min-h-0 p-4 space-y-2">
           {isLoading ? (
             <p className="text-xs text-muted-foreground text-center py-8">Loading chunks…</p>
           ) : chunks.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
-              <FileText className="h-8 w-8 opacity-40" />
+              <FileText className="h-8 w-8 opacity-40 text-primary" />
               <p className="text-xs">No chunks found for this document.</p>
             </div>
           ) : (
@@ -87,7 +87,7 @@ export function ChunkExplorer({ documentId, documentName, initialChunkId, onClos
               return (
                 <div
                   key={chunk.id}
-                  id={`chunk-\${chunk.id}`}
+                  id={`chunk-${chunk.id}`}
                   ref={(el) => {
                     if (el && chunk.id === initialChunkId) {
                       // Scroll into view on mount if it's the target chunk
@@ -95,8 +95,8 @@ export function ChunkExplorer({ documentId, documentName, initialChunkId, onClos
                     }
                   }}
                   className={cn(
-                    'border border-border/55 rounded-md overflow-hidden bg-accent/5',
-                    open && 'border-primary/30'
+                    'border border-border rounded-xl overflow-hidden bg-secondary/30 transition-colors',
+                    open && 'border-primary/40 bg-secondary/60'
                   )}
                 >
                   <button

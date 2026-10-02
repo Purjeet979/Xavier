@@ -12,30 +12,30 @@ export function EvidencePanel({ chunks, onChunkClick }: EvidencePanelProps) {
   if (!chunks || chunks.length === 0) return null
 
   return (
-    <div className="mb-3 p-3 bg-muted/40 rounded-lg border border-border/50 text-xs">
-      <div className="font-semibold mb-2 flex items-center gap-1.5 text-muted-foreground">
-        <Layers className="w-3.5 h-3.5" /> Retrieved Context
+    <div className="mb-3 p-3.5 bg-secondary/60 rounded-xl border border-border text-xs">
+      <div className="font-medium mb-2.5 flex items-center gap-1.5 text-muted-foreground">
+        <Layers className="w-3.5 h-3.5 text-primary" /> Retrieved Context
       </div>
       <div className="space-y-2">
         {chunks.map((c, i) => (
           <div 
             key={i} 
             onClick={() => onChunkClick?.(c)}
-            className="bg-card p-2.5 rounded border border-border/40 shadow-sm cursor-pointer hover:border-primary/50 hover:bg-accent/20 transition-colors"
+            className="bg-card p-3 rounded-lg border border-border shadow-none cursor-pointer hover:border-primary/50 hover:bg-accent/30 transition-colors"
           >
-            <div className="flex items-center gap-1.5 font-medium text-primary mb-1">
-              <FileText className="w-3 h-3 shrink-0" />
+            <div className="flex items-center gap-1.5 font-medium text-foreground mb-1.5">
+              <FileText className="w-3.5 h-3.5 text-primary shrink-0" />
               <span className="truncate">{c.documentName}</span>
-              {c.metadata?.pageNumber && <span className="opacity-70 font-mono text-[10px]">p.{c.metadata.pageNumber}</span>}
-              {c.truncated && <span className="text-[10px] text-orange-500 font-bold ml-1 px-1 rounded bg-orange-500/10">truncated in prompt</span>}
-              <span className="ml-auto font-mono text-[10px] text-muted-foreground/60">[C{i + 1}]</span>
+              {c.metadata?.pageNumber && <span className="text-muted-foreground font-mono text-[10px]">p.{c.metadata.pageNumber}</span>}
+              {c.truncated && <span className="text-[10px] text-warning font-semibold ml-1 px-1.5 py-0.5 rounded bg-warning/10">truncated</span>}
+              <span className="ml-auto font-mono text-[10px] font-semibold text-primary bg-accent/80 px-1.5 py-0.5 rounded">[C{i + 1}]</span>
             </div>
             {isTableChunk(c.text) ? (
-              <pre className="text-[10px] bg-muted/50 p-2 rounded overflow-x-auto text-muted-foreground whitespace-pre">
+              <pre className="text-[11px] bg-secondary p-2 rounded-md overflow-x-auto text-muted-foreground whitespace-pre font-mono">
                 {c.text}
               </pre>
             ) : (
-              <div className="line-clamp-2 text-muted-foreground leading-relaxed">{c.text}</div>
+              <div className="line-clamp-2 text-muted-foreground leading-relaxed text-xs">{c.text}</div>
             )}
           </div>
         ))}

@@ -51,16 +51,11 @@ export function UploadPanel({ onFilesSelected, disabled = false }: UploadPanelPr
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       onClick={triggerFileInput}
-      className={`border border-dashed rounded-md p-10 text-center transition-all duration-200 cursor-pointer flex flex-col items-center justify-center gap-3 relative ${
+      className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-200 cursor-pointer flex flex-col items-center justify-center gap-3 relative ${
         isDragging
-          ? 'border-primary bg-primary/8 scale-[0.99]'
-          : 'border-border hover:border-primary/45 hover:bg-accent/30'
+          ? 'border-primary bg-accent/60 scale-[0.99]'
+          : 'border-border bg-card/60 hover:border-primary/50 hover:bg-secondary/40'
       } ${disabled ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
-      style={{
-        backgroundImage: isDragging
-          ? undefined
-          : 'repeating-linear-gradient(0deg, transparent, transparent 27px, color-mix(in oklch, var(--border) 55%, transparent) 28px)',
-      }}
     >
       <input
         type="file"
@@ -72,13 +67,13 @@ export function UploadPanel({ onFilesSelected, disabled = false }: UploadPanelPr
         className="hidden"
       />
 
-      <div className={`p-3 rounded-md bg-card border border-border/70 ${isDragging ? 'border-primary/40 text-primary' : 'text-muted-foreground'} transition-all duration-300`}>
-        <UploadCloud className={`h-7 w-7 ${isDragging ? 'text-primary' : ''}`} />
+      <div className={`p-3.5 rounded-xl bg-secondary border border-border ${isDragging ? 'border-primary text-primary' : 'text-primary'} transition-all duration-300`}>
+        <UploadCloud className={`h-6 w-6 ${isDragging ? 'text-primary' : ''}`} />
       </div>
 
       <div className="space-y-1">
-        <h3 className="font-heading font-semibold text-sm">
-          {isDragging ? 'Drop your files here' : 'Upload your documents'}
+        <h3 className="font-heading font-semibold text-sm text-foreground">
+          {isDragging ? 'Drop your files here' : 'Upload study material'}
         </h3>
         <p className="text-xs text-muted-foreground max-w-sm">
           Drag and drop files, or click to browse. Supports PDF, Markdown, Text, HTML, CSV, and JSON.

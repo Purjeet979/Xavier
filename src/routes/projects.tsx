@@ -66,21 +66,20 @@ function CreateProjectDialog({ onClose, onCreated }: CreateDialogProps) {
 
   return (
     <div className='fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4'>
-      <Card className='w-full max-w-md max-h-[90vh] overflow-y-auto bg-card border-border/70 relative rounded-lg page-enter'>
-        <div className='absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent shrink-0' />
+      <Card className='w-full max-w-md max-h-[90vh] overflow-y-auto bg-card border border-border rounded-2xl shadow-xl page-enter'>
         <CardHeader className='pb-4 pt-6'>
           <div className='flex items-center justify-between'>
             <div className='flex items-center gap-2'>
-              <div className='p-2 bg-primary/10 rounded-md text-primary border border-primary/20'>
+              <div className='p-2 bg-accent rounded-xl text-primary border border-primary/20'>
                 <FolderOpen className='h-4 w-4' />
               </div>
-              <CardTitle className='text-base font-heading font-semibold'>New Project</CardTitle>
+              <CardTitle className='text-base font-heading font-semibold'>New Workspace</CardTitle>
             </div>
             <Button
               variant='ghost'
               size='icon'
               onClick={onClose}
-              className='h-7 w-7 rounded-md text-muted-foreground hover:text-foreground'
+              className='h-8 w-8 rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground'
             >
               <X className='h-4 w-4' />
             </Button>
@@ -92,18 +91,18 @@ function CreateProjectDialog({ onClose, onCreated }: CreateDialogProps) {
         <CardContent className='pb-6'>
           <form onSubmit={handleSubmit} className='space-y-4'>
             {error && (
-              <div className='p-3 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-xs'>
+              <div className='p-3.5 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs'>
                 {error}
               </div>
             )}
             <div className='space-y-1.5'>
               <label className='text-xs font-semibold text-muted-foreground'>
-                Project Name <span className='text-destructive'>*</span>
+                Workspace Name <span className='text-destructive'>*</span>
               </label>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder='e.g. Research Papers, Legal Docs'
+                placeholder='e.g. Distributed Systems, Biology 101'
                 className='text-sm'
                 autoFocus
               />
@@ -115,13 +114,13 @@ function CreateProjectDialog({ onClose, onCreated }: CreateDialogProps) {
               <Input
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder='Brief description of this workspace'
+                placeholder='Brief description of this study workspace'
                 className='text-sm'
               />
             </div>
             <div className='space-y-2'>
               <label className='text-xs font-semibold text-muted-foreground flex items-center gap-1.5'>
-                <Layers className='h-3.5 w-3.5 text-primary/70' />
+                <Layers className='h-3.5 w-3.5 text-primary' />
                 Embedding Model <span className='text-destructive'>*</span>
               </label>
               <div className='grid gap-2'>
@@ -130,10 +129,10 @@ function CreateProjectDialog({ onClose, onCreated }: CreateDialogProps) {
                     key={model.id}
                     onClick={() => setEmbeddingModelId(model.id)}
                     className={cn(
-                      'p-3 rounded-md border cursor-pointer transition-all duration-200',
+                      'p-3 rounded-xl border cursor-pointer transition-all duration-150',
                       embeddingModelId === model.id
-                        ? 'border-primary bg-primary/5 ring-1 ring-ring/40'
-                        : 'border-border/60 bg-card hover:border-border hover:bg-accent/30'
+                        ? 'border-primary bg-accent/60'
+                        : 'border-border bg-card hover:bg-secondary/50'
                     )}
                   >
                     <div className='flex items-center justify-between'>
@@ -144,15 +143,15 @@ function CreateProjectDialog({ onClose, onCreated }: CreateDialogProps) {
                         </p>
                       </div>
                       {embeddingModelId === model.id && (
-                        <CheckCircle2 className='h-4 w-4 text-copper shrink-0' />
+                        <CheckCircle2 className='h-4 w-4 text-primary shrink-0' />
                       )}
                     </div>
                   </div>
                 ))}
               </div>
-              <p className='text-[10px] text-copper flex items-start gap-1'>
+              <p className='text-xs text-warning flex items-start gap-1.5 mt-1'>
                 <span className='font-bold shrink-0'>⚠</span>
-                This model is locked after creation. All documents in this project will be embedded with it.
+                This model is locked after creation. All documents in this workspace will be embedded with it.
               </p>
             </div>
             <div className='flex gap-2 pt-2'>
@@ -172,7 +171,7 @@ function CreateProjectDialog({ onClose, onCreated }: CreateDialogProps) {
                 ) : (
                   <span className='flex items-center gap-2'>
                     <Plus className='h-3.5 w-3.5' />
-                    Create Project
+                    Create Workspace
                   </span>
                 )}
               </Button>
@@ -261,9 +260,9 @@ function ProjectsComponent() {
       <div className='space-y-6 max-w-4xl mx-auto w-full'>
         <div className='flex items-center justify-between gap-4'>
           <div>
-            <h1 className='font-heading text-2xl font-semibold tracking-tight'>Projects</h1>
-            <p className='text-muted-foreground text-sm mt-1'>
-              Each project is an isolated workspace with a locked embedding model.
+            <h1 className='font-heading text-2xl font-semibold tracking-tight'>Study Workspaces</h1>
+            <p className='text-muted-foreground text-xs mt-1'>
+              Each workspace isolates a subject or collection of study materials with a locked embedding model.
             </p>
           </div>
           <Button
@@ -271,24 +270,24 @@ function ProjectsComponent() {
             className='shrink-0 flex items-center gap-2'
           >
             <Plus className='h-4 w-4' />
-            New Project
+            New Workspace
           </Button>
         </div>
 
         {isLoading ? (
-          <div className='h-48 flex items-center justify-center text-muted-foreground text-sm'>
-            Loading projects...
+          <div className='h-48 flex items-center justify-center text-muted-foreground text-xs'>
+            Loading workspaces...
           </div>
         ) : projects.length === 0 ? (
-          <Card className='bg-card border-border/70 rounded-lg overflow-hidden'>
+          <Card className='bg-card border border-border rounded-2xl overflow-hidden shadow-none'>
             <CardContent className='flex flex-col items-center justify-center py-16 gap-4 text-center page-enter'>
-              <div className='p-4 bg-primary/10 rounded-md text-primary border border-primary/20'>
+              <div className='p-4 bg-accent rounded-2xl text-primary border border-primary/20'>
                 <FolderOpen className='h-8 w-8' />
               </div>
               <div className='space-y-1'>
-                <p className='font-heading font-semibold text-lg text-foreground'>No projects yet</p>
+                <p className='font-heading font-semibold text-lg text-foreground'>No workspaces yet</p>
                 <p className='text-xs text-muted-foreground max-w-xs'>
-                  Create your first project to start indexing and querying documents.
+                  Create your first study workspace to start indexing and querying your notes and textbooks.
                 </p>
               </div>
               <Button
@@ -296,7 +295,7 @@ function ProjectsComponent() {
                 className='flex items-center gap-2 mt-2'
               >
                 <Plus className='h-4 w-4' />
-                Create First Project
+                Create First Workspace
               </Button>
             </CardContent>
           </Card>
@@ -310,22 +309,22 @@ function ProjectsComponent() {
                 <Card
                   key={project.id}
                   className={cn(
-                    'relative overflow-hidden rounded-lg transition-all duration-200 cursor-pointer group border-l-2',
+                    'relative overflow-hidden rounded-2xl transition-all duration-150 cursor-pointer group shadow-none border',
                     isActive
-                      ? 'border-border/70 border-l-primary bg-primary/4'
-                      : 'border-border/70 border-l-transparent bg-card hover:border-primary/30'
+                      ? 'border-primary/50 bg-accent/30'
+                      : 'border-border bg-card hover:border-primary/40'
                   )}
                   onClick={() => handleSelectProject(project)}
                 >
                   <CardContent className='p-5'>
                     <div className='flex items-start justify-between gap-4'>
-                      <div className='flex items-start gap-3 flex-1 min-w-0'>
+                      <div className='flex items-start gap-3.5 flex-1 min-w-0'>
                         <div
                           className={cn(
-                            'p-2.5 rounded-md shrink-0 mt-0.5 transition-colors border',
+                            'p-2.5 rounded-xl shrink-0 mt-0.5 transition-colors border',
                             isActive
-                              ? 'bg-primary/10 text-primary border-primary/25'
-                              : 'bg-secondary text-muted-foreground border-border/60 group-hover:text-foreground'
+                              ? 'bg-accent text-primary border-primary/25'
+                              : 'bg-secondary text-muted-foreground border-border group-hover:text-foreground'
                           )}
                         >
                           <FolderOpen className='h-4 w-4' />
@@ -336,28 +335,28 @@ function ProjectsComponent() {
                               {project.name}
                             </h3>
                             {isActive && (
-                              <span className='inline-flex items-center gap-1 text-[10px] bg-primary/10 text-primary border border-primary/25 px-2 py-0.5 rounded-sm font-semibold shrink-0'>
+                              <span className='inline-flex items-center gap-1.5 text-xs bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 rounded-full font-medium shrink-0'>
                                 <CheckCircle2 className='h-3 w-3' />
-                                Active
+                                Active Workspace
                               </span>
                             )}
                           </div>
                           {project.description && (
-                            <p className='text-xs text-muted-foreground mt-0.5 line-clamp-1'>
+                            <p className='text-xs text-muted-foreground mt-1 line-clamp-1'>
                               {project.description}
                             </p>
                           )}
-                          <div className='flex flex-wrap items-center gap-3 mt-2'>
-                            <span className='inline-flex items-center gap-1 text-[10px] font-semibold bg-secondary text-muted-foreground border border-border/50 px-2 py-0.5 rounded-sm'>
+                          <div className='flex flex-wrap items-center gap-3 mt-2.5'>
+                            <span className='inline-flex items-center gap-1 text-xs font-medium bg-secondary text-muted-foreground border border-border px-2.5 py-0.5 rounded-full'>
                               <Layers className='h-3 w-3 text-primary/70' />
                               {getModelLabel(project.embeddingModelId)}
                             </span>
-                            <span className='inline-flex items-center gap-1 text-[10px] text-muted-foreground'>
-                              <FileText className='h-3 w-3' />
+                            <span className='inline-flex items-center gap-1 text-xs text-muted-foreground'>
+                              <FileText className='h-3.5 w-3.5' />
                               {docCount} {docCount === 1 ? 'document' : 'documents'}
                             </span>
-                            <span className='inline-flex items-center gap-1 text-[10px] text-muted-foreground'>
-                              <Calendar className='h-3 w-3' />
+                            <span className='inline-flex items-center gap-1 text-xs text-muted-foreground'>
+                              <Calendar className='h-3.5 w-3.5' />
                               {new Date(project.createdAt).toLocaleDateString([], {
                                 month: 'short',
                                 day: 'numeric',
@@ -375,8 +374,8 @@ function ProjectsComponent() {
                           e.stopPropagation()
                           handleDelete(project)
                         }}
-                        className='h-8 w-8 shrink-0 hover:text-destructive text-muted-foreground hover:bg-destructive/10 rounded-md md:opacity-0 md:group-hover:opacity-100 opacity-100 transition-opacity'
-                        title='Delete project'
+                        className='h-8 w-8 shrink-0 hover:text-destructive text-muted-foreground hover:bg-destructive/10 rounded-xl md:opacity-0 md:group-hover:opacity-100 opacity-100 transition-opacity'
+                        title='Delete workspace'
                       >
                         <Trash2 className='h-4 w-4' />
                       </Button>
