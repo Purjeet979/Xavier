@@ -100,7 +100,11 @@ export function useBrowserAiEngine<TModel>({
             )
           } catch (sessionErr: unknown) {
             const errStr = sessionErr instanceof Error ? sessionErr.message : String(sessionErr)
-            if (errStr.includes('webgpu') || errStr.includes('GPU adapter') || errStr.includes('no available backend')) {
+            if (
+              errStr.includes('webgpu') ||
+              errStr.includes('GPU adapter') ||
+              errStr.includes('no available backend')
+            ) {
               console.warn(`[${engineLabel}] WebGPU adapter failed, trying WASM...`, sessionErr)
               onLoadMessage?.('WebGPU unavailable on GPU adapter. Retrying in WASM CPU mode...')
               try {
@@ -121,6 +125,8 @@ export function useBrowserAiEngine<TModel>({
                 }
                 throw wasmErr
               }
+            } else if (errStr.includes('GatherBlockQuantized') || errStr.includes('Could not find an implementation')) {
+               throw new Error(`WebGPU is required for this model, but WebGPU is disabled or unavailable in your browser. Please enable "Use graphics acceleration when available" in Chrome Settings (chrome://settings/system) and restart your browser.`, { cause: sessionErr })
             } else {
               throw sessionErr
             }
