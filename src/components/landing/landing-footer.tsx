@@ -43,7 +43,7 @@ export function LandingFooter() {
             </h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li>
-                <Link to="/" className="hover:text-foreground transition-colors">
+                <Link to="/chat" className="hover:text-foreground transition-colors">
                   AI Study Assistant (Chat)
                 </Link>
               </li>

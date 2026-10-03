@@ -33,7 +33,7 @@ export function LandingFinalCTA() {
             </p>
 
             <div className="pt-3 flex flex-col sm:flex-row items-center justify-center gap-3.5">
-              <Link to="/">
+              <Link to="/chat">
                 <Button
                   size="lg"
                   className="w-full sm:w-auto rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground shadow-sm h-11 px-8 text-sm font-medium flex items-center justify-center gap-2"

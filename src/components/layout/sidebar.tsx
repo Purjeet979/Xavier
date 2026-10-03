@@ -15,11 +15,11 @@ interface SidebarProps {
 export function Sidebar({ isCollapsed, onToggle, isMobileOpen = false, onMobileClose }: SidebarProps) {
   const { theme, setTheme } = useTheme()
   const links = [
-    { to: '/', label: 'Study Assistant', icon: Plus },
+    { to: '/', label: 'Home', icon: Compass },
+    { to: '/chat', label: 'Study Assistant', icon: Plus },
     { to: '/documents', label: 'Documents', icon: FileText },
     { to: '/history', label: 'History', icon: History },
     { to: '/projects', label: 'Workspaces', icon: FolderOpen },
-    { to: '/landing', label: 'Homepage / Story', icon: Compass },
     { to: '/settings', label: 'Settings', icon: Settings },
   ]
 
@@ -47,7 +47,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen = false, onMobileC
             "justify-between"
           )}
         >
-          <div className="flex items-center gap-2.5 overflow-hidden shrink-0">
+          <Link to="/" className="flex items-center gap-2.5 overflow-hidden shrink-0 hover:opacity-90 transition-opacity">
             <Logo size={26} className="text-primary" />
             {(!isCollapsed || isMobileOpen) && (
               <div className="flex flex-col min-w-0">
@@ -59,7 +59,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen = false, onMobileC
                 </span>
               </div>
             )}
-          </div>
+          </Link>
           {isMobileOpen && (
             <Button
               variant="ghost"
@@ -76,11 +76,11 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen = false, onMobileC
           {links.map((link) => {
             const Icon = link.icon
             const showLabel = !isCollapsed || isMobileOpen
-            if (link.to === '/') {
+            if (link.to === '/chat') {
               return (
                 <Link
                   key={link.to}
-                  to="/"
+                  to="/chat"
                   search={{ clear: '1' }}
                   title={(isCollapsed && !isMobileOpen) ? link.label : undefined}
                   activeProps={{

@@ -229,7 +229,7 @@ export function LandingProductPreview() {
                     value="Compare positional encodings in Transformer vs Rotary Positional Embeddings (RoPE)..."
                     className="w-full bg-transparent px-3 text-xs text-[#AAA497] focus:outline-hidden"
                   />
-                  <Link to="/">
+                  <Link to="/chat">
                     <Button
                       size="sm"
                       className="rounded-xl bg-[#D4A64A] hover:bg-[#E0B65C] text-[#171612] text-xs font-semibold h-8 px-3 flex items-center gap-1 shrink-0"

@@ -53,9 +53,10 @@ export function AppShell({ children }: AppShellProps) {
   const getPageTitle = (pathname: string) => {
     switch (pathname) {
       case '/':
-        return 'Chat'
       case '/landing':
         return 'Knowledge-Grounded Study Platform'
+      case '/chat':
+        return 'Study Assistant'
       case '/history':
         return 'History'
       case '/projects':
@@ -70,14 +71,14 @@ export function AppShell({ children }: AppShellProps) {
   }
 
   useEffect(() => {
-    if (location.pathname === '/landing') {
+    if (location.pathname === '/' || location.pathname === '/landing') {
       document.title = 'Gyansutra (ज्ञानसूत्र) — Turn Your Study Material Into Knowledge'
     } else {
       document.title = `${getPageTitle(location.pathname)} | Gyaanसूत्र`
     }
   }, [location.pathname])
 
-  if (location.pathname === '/landing') {
+  if (location.pathname === '/' || location.pathname === '/landing') {
     return (
       <div className="min-h-screen w-full bg-background text-foreground overflow-x-hidden">
         <CustomCursor />
@@ -116,11 +117,11 @@ export function AppShell({ children }: AppShellProps) {
           />
           <main className={cn(
             'flex-1 min-h-0',
-            location.pathname === '/'
+            location.pathname === '/chat'
               ? 'overflow-hidden flex flex-col'
               : 'overflow-y-auto p-4 md:p-6'
           )}>
-            {location.pathname === '/' ? (
+            {location.pathname === '/chat' ? (
               <div className="flex flex-col flex-1 min-h-0 h-full">
                 {children}
               </div>

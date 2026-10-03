@@ -58,7 +58,7 @@ export function LandingHero() {
 
             {/* CTAs */}
             <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5">
-              <Link to="/">
+              <Link to="/chat">
                 <Button
                   size="lg"
                   className="w-full sm:w-auto rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground shadow-sm h-11 px-7 font-medium text-sm flex items-center justify-center gap-2"

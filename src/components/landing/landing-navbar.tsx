@@ -31,7 +31,7 @@ export function LandingNavbar({ onReplayIntro }: LandingNavbarProps) {
     <header className="sticky top-0 z-50 w-full border-b border-border/80 bg-background/85 backdrop-blur-md transition-colors">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Brand */}
-        <Link to="/landing" className="flex items-center gap-2.5 group">
+        <Link to="/" className="flex items-center gap-2.5 group">
           <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center text-primary-foreground shadow-xs group-hover:scale-105 transition-transform">
             <GraduationCap className="h-5 w-5" />
           </div>
@@ -100,7 +100,7 @@ export function LandingNavbar({ onReplayIntro }: LandingNavbarProps) {
             </Button>
           </Link>
 
-          <Link to="/">
+          <Link to="/chat">
             <Button
               size="sm"
               className="rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground shadow-xs text-xs font-medium h-9 px-4 flex items-center gap-1.5"
@@ -148,7 +148,7 @@ export function LandingNavbar({ onReplayIntro }: LandingNavbarProps) {
             ))}
           </nav>
           <div className="pt-2 border-t border-border flex flex-col gap-2">
-            <Link to="/" onClick={() => setMobileMenuOpen(false)}>
+            <Link to="/chat" onClick={() => setMobileMenuOpen(false)}>
               <Button className="w-full rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground text-xs h-9 justify-center gap-1.5">
                 <span>Start Studying</span>
                 <ArrowRight className="h-3.5 w-3.5" />

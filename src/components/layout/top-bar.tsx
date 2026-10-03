@@ -31,14 +31,14 @@ export function TopBar({ title, onMenuToggle }: TopBarProps) {
       </div>
 
       <div className="flex items-center gap-2">
-        <Link to="/landing">
+        <Link to="/">
           <Button
             variant="ghost"
             size="sm"
             className="rounded-xl h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary hidden sm:flex items-center gap-1.5"
           >
             <Compass className="h-3.5 w-3.5 text-primary" />
-            <span>Overview</span>
+            <span>Home</span>
           </Button>
         </Link>
       </div>

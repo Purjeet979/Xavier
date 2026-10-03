@@ -67,7 +67,7 @@ function HistoryComponent() {
   }
 
   const handleOpenQuery = (id: string) => {
-    navigate({ to: '/', search: { historyId: id } })
+    navigate({ to: '/chat', search: { historyId: id } })
   }
 
   if (!dbReady || isLoading || !activeProject) {
