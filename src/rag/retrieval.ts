@@ -204,7 +204,7 @@ export async function retrieveChunks(
 
   // If hybrid search is disabled, return vector results directly
   if (!hybridEnabled) {
-    const results: RetrievalResult[] = vectorRows.map((row) => {
+    const rawResults: RetrievalResult[] = vectorRows.map((row) => {
       const meta = parseMeta(row.metadata_json)
       return {
         chunkId: row.id,
@@ -219,7 +219,8 @@ export async function retrieveChunks(
           vectorScore: row.score,
         },
       }
-    }).slice(0, topK)
+    })
+    const results = balancedTopK(rawResults, topK)
 
     const fusedHits = results.map((r, i) => ({
       rank: i + 1,
@@ -403,7 +404,7 @@ export function reciprocalRankFusion(
   })
 
   fused.sort((a, b) => b.score - a.score)
-  const results = fused.slice(0, topK)
+  const results = balancedTopK(fused, topK)
 
   const fusedHits: RetrievalDebugHit[] = results.map((r, i) => ({
     rank: i + 1,
@@ -421,4 +422,42 @@ export function reciprocalRankFusion(
   }))
 
   return { results, fusedHits }
+}
+
+/**
+ * Distributes top-K selections across distinct matching documents so that a single document
+ * with slightly higher keyword/vector scores doesn't starve other relevant documents.
+ */
+export function balancedTopK(fused: RetrievalResult[], topK: number): RetrievalResult[] {
+  const docIds = new Set(fused.map((r) => r.documentId))
+  if (docIds.size <= 1) {
+    return fused.slice(0, topK)
+  }
+
+  const byDoc = new Map<string, RetrievalResult[]>()
+  for (const item of fused) {
+    if (!byDoc.has(item.documentId)) {
+      byDoc.set(item.documentId, [])
+    }
+    byDoc.get(item.documentId)!.push(item)
+  }
+
+  const docArrays = Array.from(byDoc.values())
+  docArrays.sort((a, b) => (b[0]?.score ?? 0) - (a[0]?.score ?? 0))
+
+  const selected: RetrievalResult[] = []
+  let round = 0
+  while (selected.length < topK) {
+    let addedInRound = false
+    for (const arr of docArrays) {
+      if (round < arr.length && selected.length < topK) {
+        selected.push(arr[round])
+        addedInRound = true
+      }
+    }
+    if (!addedInRound) break
+    round++
+  }
+
+  return selected
 }

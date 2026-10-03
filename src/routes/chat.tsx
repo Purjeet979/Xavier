@@ -28,6 +28,7 @@ import { RetrievalDebugPanel } from '@/components/chat/retrieval-debug-panel'
 import { EvidencePanel } from '@/components/chat/evidence-panel'
 import { ChunkExplorer } from '@/components/documents/chunk-explorer'
 import { ChatInitializationCard } from '@/components/chat/chat-initialization-card'
+import { ChatDocFilter } from '@/components/chat/chat-doc-filter'
 import { useSystemInit } from '@/context/system-init-context'
 import type { LLMRuntimeHandles } from '@/llm/llm-runtime'
 import { marked } from 'marked'
@@ -308,7 +309,6 @@ function ChatComponent() {
   // Document filter
   const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set())
   const [filterOpen, setFilterOpen] = useState(false)
-  const filterRef = useRef<HTMLDivElement>(null)
 
   // Model picker
   const [modelOpen, setModelOpen] = useState(false)
@@ -383,14 +383,6 @@ function ChatComponent() {
     return () => clearInterval(iv)
   }, [dbReady])
 
-  useEffect(() => {
-    if (!filterOpen) return
-    const handler = (e: MouseEvent) => {
-      if (filterRef.current && !filterRef.current.contains(e.target as Node)) setFilterOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [filterOpen])
 
   useEffect(() => {
     if (!modelOpen) return
@@ -706,7 +698,9 @@ function ChatComponent() {
 
         {selectedDocIds.size > 0 && (
           <div className="flex flex-wrap gap-1.5 items-center px-4 md:px-6 py-2 border-t border-border bg-card/60 shrink-0">
-            <span className="text-xs text-muted-foreground font-medium">Filtering:</span>
+            <span className="text-xs text-muted-foreground font-medium">
+              {selectedDocIds.size === 1 ? 'Focusing on:' : 'Filtering:'}
+            </span>
             {projectDocs.filter((d: any) => selectedDocIds.has(d.id)).map((d: any) => (
               <span key={d.id} className="inline-flex items-center gap-1.5 text-xs bg-accent text-accent-foreground border border-primary/20 px-2.5 py-0.5 rounded-full font-medium">
                 {d.name}
@@ -715,6 +709,13 @@ function ChatComponent() {
                 </button>
               </span>
             ))}
+            <button
+              type="button"
+              onClick={() => setSelectedDocIds(new Set())}
+              className="text-[10px] text-muted-foreground hover:text-primary underline ml-1 cursor-pointer"
+            >
+              Reset to all
+            </button>
           </div>
         )}
 
@@ -864,87 +865,24 @@ function ChatComponent() {
                                   {opt.variantLabel ?? opt.engineType}
                                 </span>
                               </span>
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="relative" ref={filterRef}>
-                  <button
-                    type="button"
-                    onClick={() => { setFilterOpen((o) => !o); setModelOpen(false) }}
-                    disabled={isGenerating || isSwitchingModel || !dbReady || projectDocs.length === 0}
-                    className={cn(
-                      'flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition-colors',
-                      selectedDocIds.size > 0
-                        ? 'border-primary/40 bg-accent text-accent-foreground font-medium'
-                        : 'border-border bg-secondary text-muted-foreground hover:border-primary/40 hover:text-foreground',
-                      'disabled:opacity-40'
-                    )}
-                  >
-                    <BookOpen className="h-3 w-3 text-primary" />
-                    {selectedDocIds.size > 0 ? `${selectedDocIds.size} doc${selectedDocIds.size > 1 ? 's' : ''}` : 'All Study Material'}
-                    {selectedDocIds.size > 0 && (
-                      <span
-                        role="button"
-                        aria-label="Clear filter"
-                        onClick={(e) => { e.stopPropagation(); setSelectedDocIds(new Set()) }}
-                        className="ml-0.5 hover:text-destructive transition-colors"
-                      >
-                        <X className="h-3 w-3" />
-                      </span>
-                    )}
-                  </button>
-
-                  {filterOpen && projectDocs.length > 0 && (
-                    <div className="absolute left-0 bottom-full mb-2 z-50 w-72 rounded-2xl border border-border bg-popover shadow-xl overflow-hidden">
-                      <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-border">
-                        <span className="text-xs font-semibold flex items-center gap-1.5 text-foreground"><FileText className="h-3.5 w-3.5 text-primary" />Filter by Document</span>
-                        <div className="flex items-center gap-1">
-                          {selectedDocIds.size > 0 && (
-                            <button type="button" onClick={() => setSelectedDocIds(new Set())} className="text-[10px] text-muted-foreground hover:text-destructive px-2 py-0.5 rounded-md hover:bg-destructive/10">
-                              Clear all
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => selectedDocIds.size === projectDocs.length ? setSelectedDocIds(new Set()) : setSelectedDocIds(new Set(projectDocs.map((d: any) => d.id)))}
-                            className="text-[10px] text-primary hover:underline px-1.5 py-0.5 rounded-sm"
-                          >
-                            {selectedDocIds.size === projectDocs.length ? 'Deselect all' : 'Select all'}
-                          </button>
+                              </button>
+                            )
+                          })}
                         </div>
                       </div>
-                      <div className="max-h-56 overflow-y-auto py-1.5">
-                        {projectDocs.map((doc: any) => {
-                          const checked = selectedDocIds.has(doc.id)
-                          return (
-                            <button
-                              key={doc.id}
-                              type="button"
-                              onClick={() => setSelectedDocIds((prev) => { const n = new Set(prev); if (checked) { n.delete(doc.id) } else { n.add(doc.id) } return n })}
-                              className={cn('w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-secondary/40 text-left', checked && 'bg-primary/5 text-primary')}
-                            >
-                              <span className={cn('h-4 w-4 rounded-sm border flex items-center justify-center shrink-0', checked ? 'bg-primary border-primary text-primary-foreground' : 'border-border')}>
-                                {checked && <Check className="h-2.5 w-2.5" />}
-                              </span>
-                              <span className="truncate">{doc.name}</span>
-                            </button>
-                          )
-                        })}
-                      </div>
-                      {selectedDocIds.size > 0 && (
-                        <div className="px-3 py-2 border-t border-border/50 text-[10px] text-muted-foreground">
-                          Searching {selectedDocIds.size} of {projectDocs.length} document{projectDocs.length !== 1 ? 's' : ''}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                    )}
+                  </div>
+
+                  <ChatDocFilter
+                    projectDocs={projectDocs}
+                    selectedDocIds={selectedDocIds}
+                    setSelectedDocIds={setSelectedDocIds}
+                    isOpen={filterOpen}
+                    setIsOpen={setFilterOpen}
+                    disabled={isGenerating || isSwitchingModel || !dbReady}
+                    onCloseOtherPopovers={() => setModelOpen(false)}
+                  />
                 </div>
-              </div>
             </form>
             <p className="text-center text-[9px] text-muted-foreground/45 mt-1.5 mb-0 select-none">
               Runs entirely in your browser · No data leaves your device

@@ -70,7 +70,7 @@ async function rewriteQueryForRetrieval(
   const rewritePrompt = `Given the conversation history and the latest user message, write a single standalone search query that captures what the user is asking for now.
 Resolve pronouns and references (e.g. "it", "that", "the second one") using the history.
 Output ONLY the search query text — no quotes, labels, or explanation.
-If the latest message is already a complete standalone question, return it unchanged.`
+If the latest message is already a complete question, or if the user is asking about a different document or topic, return the latest message unchanged.`
 
   const rewriteUser = `Conversation history:
 ${formatHistoryForRewrite(prior)}
@@ -209,6 +209,8 @@ export async function* generateRAGAnswer(
 
     const systemPrompt = `You are a helpful assistant answering user queries based on the provided document excerpts.
 Answer the query as accurately as possible using only the context provided.
+Each excerpt is labeled with its source document name (e.g. [C1] [Source Document: "filename.pdf"]).
+Always answer using the excerpts that specifically address the current query. Do not confuse facts across different source documents or rely on assumptions from prior turns.
 You MUST output your response in valid JSON matching this schema:
 ${AnswerSchemaString}
 

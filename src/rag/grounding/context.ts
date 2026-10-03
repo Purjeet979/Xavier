@@ -7,9 +7,12 @@ export function buildContext(citations: RetrievalResult[]): { contextText: strin
   let truncatedCount = 0
   
   const texts = citations.map((c, idx) => {
+    const pageInfo = c.metadata?.pageNumber ? `, Page ${c.metadata.pageNumber}` : ''
+    const docTag = c.documentName ? ` [Source Document: "${c.documentName}"${pageInfo}]` : ''
+
     if (c.text.length <= MAX_CHUNK_CHARS_HARD) {
       c.truncated = false
-      return `[C${idx + 1}]:\n${c.text}`
+      return `[C${idx + 1}]${docTag}:\n${c.text}`
     }
     
     let text: string
@@ -46,7 +49,7 @@ export function buildContext(citations: RetrievalResult[]): { contextText: strin
     
     c.truncated = true
     truncatedCount++
-    return `[C${idx + 1}]:\n${text}`
+    return `[C${idx + 1}]${docTag}:\n${text}`
   })
 
   const contextText = texts.join('\n\n')
