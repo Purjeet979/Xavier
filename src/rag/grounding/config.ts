@@ -12,9 +12,9 @@ export const COSINE_THRESHOLDS: Record<string, number> = {
   'xenova-all-minilm-l6-v2': 0.5,
   'onnx-bge-small-en-v1.5': 0.6,
   'onnx-bge-base-en-v1.5': 0.6,
-  'xenova-gte-base': 0.78,
-  'supabase-gte-small': 0.78,
-  'onnx-multilingual-e5-small': 0.78,
+  'xenova-gte-base': 0.82,
+  'supabase-gte-small': 0.82,
+  'onnx-multilingual-e5-small': 0.82,
 }
 
 export function getThreshold(modelId: string): number {
@@ -26,9 +26,9 @@ export const VERIFY_THRESHOLDS: Record<string, number> = {
   'xenova-all-minilm-l6-v2': 0.45,
   'onnx-bge-small-en-v1.5': 0.55,
   'onnx-bge-base-en-v1.5': 0.55,
-  'xenova-gte-base': 0.75,
-  'supabase-gte-small': 0.75,
-  'onnx-multilingual-e5-small': 0.75,
+  'xenova-gte-base': 0.82,
+  'supabase-gte-small': 0.82,
+  'onnx-multilingual-e5-small': 0.82,
 }
 
 export function getVerifyThreshold(modelId: string): number {
