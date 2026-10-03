@@ -3,7 +3,7 @@ import { loadPreferences } from '@/lib/preferences'
 import { getLLMVariant } from '@/llm/llm-models'
 import { streamLLMWithToolLoop, type RuntimeMessage, type LLMRuntimeHandles } from '@/llm/llm-runtime'
 import { evaluateGate } from './grounding/gate'
-import { TOP_K_CONTEXT, REWRITE_FOLLOWUPS, REWRITE_SKIP_WORDS, REWRITE_TIMEOUT_MS } from './grounding/config'
+import { REWRITE_FOLLOWUPS, REWRITE_SKIP_WORDS, REWRITE_TIMEOUT_MS } from './grounding/config'
 import { buildContext } from './grounding/context'
 import { AnswerSchemaString, tolerantParseJson, extractPartialAnswer } from './grounding/schema'
 import { verifyAnswer } from './grounding/verifier'
@@ -184,7 +184,7 @@ export async function* generateRAGAnswer(
       return
     }
 
-    const citations = allCitations.slice(0, TOP_K_CONTEXT)
+    const citations = allCitations
     yield { type: 'context_chunks', contextChunks: citations }
 
     const effectiveTier = await getEffectiveTierAsync()

@@ -1,4 +1,3 @@
-export const TOP_K_CONTEXT = 3
 export const MAX_CHUNK_CHARS_HARD = 3200
 export const MIN_CHARS_PER_PAGE = 30
 export const VERIFY_MIN_WORDS = 4
